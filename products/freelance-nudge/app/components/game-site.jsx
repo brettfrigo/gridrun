@@ -37,6 +37,7 @@ export default function GameSite() {
   const [obstacles, setObstacles] = useState([]);
   const [orbs, setOrbs] = useState([]);
   const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [dailyBest, setDailyBest] = useState(0);
@@ -138,6 +139,7 @@ export default function GameSite() {
     lastOrbSpawn.current = now;
     lastFrame.current = now;
     rngRef.current = mulberry32(hashString(todayKey()));
+    setPaused(false);
     setRunning(true);
     playBeep(520, 0.07, "triangle", 0.03);
   };
@@ -169,6 +171,10 @@ export default function GameSite() {
     const onKey = (e) => {
       if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") setPlayerLane((p) => Math.max(0, p - 1));
       if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") setPlayerLane((p) => Math.min(2, p + 1));
+      if (e.key.toLowerCase() === "p" && running) {
+        setPaused((v) => !v);
+        setMessage((m) => (m === "PAUSED" ? "RUNNER ONLINE" : "PAUSED"));
+      }
       if (e.key === " " && !running) start();
     };
     window.addEventListener("keydown", onKey);
@@ -179,6 +185,12 @@ export default function GameSite() {
     if (!running) return;
 
     const loop = (ts) => {
+      if (paused) {
+        lastFrame.current = ts;
+        raf.current = requestAnimationFrame(loop);
+        return;
+      }
+
       const dt = ts - lastFrame.current;
       lastFrame.current = ts;
 
@@ -237,10 +249,10 @@ export default function GameSite() {
 
     raf.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf.current);
-  }, [running, speed, boost, combo, mode, playerLane]);
+  }, [running, paused, speed, boost, combo, mode, playerLane]);
 
   useEffect(() => {
-    if (!running) return;
+    if (!running || paused) return;
 
     const gotOrb = orbs.some((o) => o.lane === playerLane && o.y > 80 && o.y < 96);
     if (gotOrb) {
@@ -311,7 +323,7 @@ export default function GameSite() {
         playBeep(120, 0.18, "square", 0.06);
       }
     }
-  }, [obstacles, orbs, playerLane, running, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo]);
+  }, [obstacles, orbs, playerLane, running, paused, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
@@ -383,6 +395,7 @@ export default function GameSite() {
                 <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" />
                 <Stat label="Tier" value={tier} tone="fuchsia" />
                 <Stat label="Streak" value={`${runStreak}`} tone="cyan" />
+                <Stat label="State" value={paused ? "PAUSED" : running ? "RUNNING" : "IDLE"} tone="fuchsia" />
               </div>
               <div className="mt-3 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Shield</span><span>{shield > 0 ? "🛡️ Online" : "Offline"}</span></div>
               <div className="mt-1 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Next boss</span><span>{nextBossIn}s</span></div>
@@ -398,7 +411,19 @@ export default function GameSite() {
                 {missions.map((m) => <div key={m.label} className="flex items-center justify-between"><span>{m.label}</span><span>{m.done ? "✅" : "⬜"}</span></div>)}
               </div>
               <p className="mt-3 text-sm text-cyan-100/80">{message}</p>
-              <button onClick={start} className="mt-4 w-full rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">{running ? "Reboot Run" : "Start Run"}</button>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button onClick={start} className="rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">{running ? "Reboot Run" : "Start Run"}</button>
+                <button
+                  disabled={!running}
+                  onClick={() => {
+                    setPaused((v) => !v);
+                    setMessage((m) => (m === "PAUSED" ? "RUNNER ONLINE" : "PAUSED"));
+                  }}
+                  className="rounded-lg border border-cyan-400/50 px-3 py-2 font-bold disabled:opacity-40"
+                >
+                  {paused ? "Resume" : "Pause"}
+                </button>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">

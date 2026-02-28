@@ -225,7 +225,8 @@ export default function GameSite() {
       setObstacles((prev) => prev.map((o) => ({ ...o, y: o.y + velocity })).filter((o) => o.y < 115));
       setOrbs((prev) => prev.map((o) => ({ ...o, y: o.y + velocity * 0.88 })).filter((o) => o.y < 115));
 
-      setScore((s) => s + Math.floor((dt / 16) * (1 + boost * 0.4) * combo * (inBoss ? 1.35 : 1)));
+      const laneBonus = playerLane === 1 ? 1.2 : 1;
+      setScore((s) => s + Math.floor((dt / 16) * (1 + boost * 0.4) * combo * laneBonus * (inBoss ? 1.35 : 1)));
       setSpeed((s) => Math.min(11, s + dt * 0.000048));
       setBoost((b) => Math.max(0, b - dt * 0.00032));
       setCombo((c) => Math.max(1, c - dt * 0.00011));
@@ -236,7 +237,7 @@ export default function GameSite() {
 
     raf.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf.current);
-  }, [running, speed, boost, combo, mode]);
+  }, [running, speed, boost, combo, mode, playerLane]);
 
   useEffect(() => {
     if (!running) return;
@@ -314,6 +315,9 @@ export default function GameSite() {
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
+  const laneBonusActive = playerLane === 1;
+  const boostPct = Math.min(100, Math.round((boost / 4.8) * 100));
+  const comboPct = Math.min(100, Math.round((combo / 4.8) * 100));
   const missions = [
     { label: "Score 2500+", done: score >= 2500 },
     { label: "Collect 8 orbs", done: orbCount >= 8 },
@@ -382,6 +386,13 @@ export default function GameSite() {
               </div>
               <div className="mt-3 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Shield</span><span>{shield > 0 ? "🛡️ Online" : "Offline"}</span></div>
               <div className="mt-1 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Next boss</span><span>{nextBossIn}s</span></div>
+              <div className="mt-2 rounded-lg border border-cyan-500/25 p-2 text-xs">
+                <div className="mb-1 flex items-center justify-between"><span>Center lane bonus</span><span>{laneBonusActive ? "🟢 1.2x" : "⚪ 1.0x"}</span></div>
+                <div className="mb-1 flex items-center justify-between"><span>Boost meter</span><span>{boost.toFixed(1)}x</span></div>
+                <div className="h-1.5 w-full rounded bg-cyan-900/40"><div className="h-1.5 rounded bg-cyan-300" style={{ width: `${boostPct}%` }} /></div>
+                <div className="mb-1 mt-2 flex items-center justify-between"><span>Combo meter</span><span>{combo.toFixed(1)}x</span></div>
+                <div className="h-1.5 w-full rounded bg-fuchsia-900/40"><div className="h-1.5 rounded bg-fuchsia-300" style={{ width: `${comboPct}%` }} /></div>
+              </div>
               <div className="mt-3 rounded-lg border border-cyan-500/25 p-2 text-xs">
                 <p className="mb-1 font-semibold text-cyan-200">Run Missions</p>
                 {missions.map((m) => <div key={m.label} className="flex items-center justify-between"><span>{m.label}</span><span>{m.done ? "✅" : "⬜"}</span></div>)}

@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  @apply bg-bg text-ink antialiased;
+  @apply bg-[#f7f8fc] text-slate-900 antialiased;
 }

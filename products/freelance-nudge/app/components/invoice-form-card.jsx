@@ -8,24 +8,24 @@ export default function InvoiceFormCard({ form, onChange, onSubmit, disabled, on
   ];
 
   return (
-    <article className="rounded-xl border border-slate-700 bg-slate-900/80 p-4">
-      <h2 className="mb-3 text-xl font-semibold">Add Invoice</h2>
-      <form onSubmit={onSubmit} className="space-y-2">
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-lg font-semibold text-slate-900">Add invoice</h2>
+      <form onSubmit={onSubmit} className="space-y-3">
         {fields.map(([key, label, type]) => (
-          <label key={key} className="block text-sm">
+          <label key={key} className="block text-sm font-medium text-slate-700">
             {label}
             <input
               type={type}
               required
               value={form[key]}
               onChange={(e) => onChange(key, e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-600 bg-slate-950 p-2"
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none ring-indigo-200 placeholder:text-slate-400 focus:ring"
             />
           </label>
         ))}
-        <button disabled={disabled} className="mt-2 rounded-md bg-cyan-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50">Save Invoice</button>
+        <button disabled={disabled} className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">Save invoice</button>
       </form>
-      <button onClick={onExportCsv} className="mt-3 rounded-md border border-indigo-400 px-3 py-2 text-sm">Export CSV</button>
+      <button onClick={onExportCsv} className="mt-3 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</button>
     </article>
   );
 }

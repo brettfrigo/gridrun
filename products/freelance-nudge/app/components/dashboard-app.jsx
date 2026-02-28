@@ -121,8 +121,8 @@ export default function DashboardApp() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(1000px_600px_at_20%_-10%,#1b2751_0%,transparent_55%)] p-6">
-      <div className="mx-auto max-w-6xl space-y-4">
+    <main className="min-h-screen p-6 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-5">
         <HeaderPanel
           invoicesCount={invoices.length}
           freeLimit={FREE_LIMIT}
@@ -131,7 +131,7 @@ export default function DashboardApp() {
           onOpenPro={() => setModalOpen(true)}
         />
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-5 md:grid-cols-2">
           <InvoiceFormCard
             form={form}
             onChange={(key, value) => setForm((prev) => ({ ...prev, [key]: value }))}
@@ -161,7 +161,7 @@ export default function DashboardApp() {
           onCopy={() => navigator.clipboard.writeText(emailOutput || "")}
         />
 
-        <footer className="pb-4 text-center text-sm text-indigo-100/70">Connected to API at {api.base}</footer>
+        <footer className="pb-5 text-center text-sm text-slate-500">Connected to API at {api.base}</footer>
         <ProModal open={modalOpen} onClose={() => setModalOpen(false)} />
       </div>
     </main>

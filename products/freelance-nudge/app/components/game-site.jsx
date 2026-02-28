@@ -59,6 +59,8 @@ export default function GameSite() {
   const [runStreak, setRunStreak] = useState(0);
   const [peakCombo, setPeakCombo] = useState(1);
   const [lastRun, setLastRun] = useState(null);
+  const [roadOffset, setRoadOffset] = useState(0);
+  const [comboBurst, setComboBurst] = useState(false);
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
@@ -125,6 +127,8 @@ export default function GameSite() {
     setBossesCleared(0);
     setMissionRewarded(false);
     setDangerFlash(false);
+    setComboBurst(false);
+    setRoadOffset(0);
     setBossMode(false);
     setNextBossIn(30);
     setMessage(mode === "daily" ? "DAILY CHALLENGE ACTIVE" : "RUNNER ONLINE");
@@ -234,6 +238,7 @@ export default function GameSite() {
       }
 
       const velocity = dt * (0.026 + speed * 0.007 + Math.min(boost, 3) * 0.01 + (inBoss ? 0.012 : 0));
+      setRoadOffset((r) => (r + velocity * 2.2) % 60);
       setObstacles((prev) => prev.map((o) => ({ ...o, y: o.y + velocity })).filter((o) => o.y < 115));
       setOrbs((prev) => prev.map((o) => ({ ...o, y: o.y + velocity * 0.88 })).filter((o) => o.y < 115));
 
@@ -264,6 +269,8 @@ export default function GameSite() {
         return next;
       });
       setOrbCount((c) => c + 1);
+      setComboBurst(true);
+      setTimeout(() => setComboBurst(false), 180);
       setScore((s) => s + 150);
       setMessage("ENERGY ORB COLLECTED ⚡ COMBO UP");
       playBeep(860, 0.06, "triangle", 0.03);
@@ -360,8 +367,22 @@ export default function GameSite() {
         <section className="grid gap-6 md:grid-cols-[1.25fr_.75fr]">
           <div className={`rounded-2xl border border-cyan-400/40 bg-gradient-to-b ${vibe} p-4 shadow-[0_0_40px_rgba(14,165,233,.18)]`}>
             <div className={`relative h-[540px] overflow-hidden rounded-xl border border-cyan-500/30 bg-[#02030a] ${dangerFlash ? "animate-pulse" : ""}`}>
-              <div className="absolute inset-0 opacity-35" style={{ backgroundImage: "linear-gradient(to bottom, rgba(34,211,238,0.2) 1px, transparent 1px)", backgroundSize: "100% 30px" }} />
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(to right, rgba(217,70,239,0.2) 1px, transparent 1px)", backgroundSize: "44px 100%" }} />
+              <div
+                className="absolute inset-0 opacity-35"
+                style={{
+                  backgroundImage: "linear-gradient(to bottom, rgba(34,211,238,0.2) 1px, transparent 1px)",
+                  backgroundSize: "100% 30px",
+                  backgroundPositionY: `${roadOffset}px`
+                }}
+              />
+              <div
+                className="absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage: "linear-gradient(to right, rgba(217,70,239,0.2) 1px, transparent 1px)",
+                  backgroundSize: "44px 100%",
+                  backgroundPositionY: `${roadOffset * 0.5}px`
+                }}
+              />
 
               {bossMode && <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-rose-400/60 bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-200">BOSS WAVE</div>}
 
@@ -392,7 +413,7 @@ export default function GameSite() {
                 <Stat label="Best" value={best} tone="fuchsia" />
                 <Stat label="Speed" value={`${speed.toFixed(1)}x`} tone="cyan" />
                 <Stat label="Boost" value={`${boost.toFixed(1)}x`} tone="fuchsia" />
-                <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" />
+                <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" pop={comboBurst} />
                 <Stat label="Tier" value={tier} tone="fuchsia" />
                 <Stat label="Streak" value={`${runStreak}`} tone="cyan" />
                 <Stat label="State" value={paused ? "PAUSED" : running ? "RUNNING" : "IDLE"} tone="fuchsia" />
@@ -477,10 +498,10 @@ export default function GameSite() {
   );
 }
 
-function Stat({ label, value, tone = "cyan" }) {
+function Stat({ label, value, tone = "cyan", pop = false }) {
   const cls = tone === "fuchsia" ? "border-fuchsia-400/35 bg-fuchsia-900/10 text-fuchsia-100" : "border-cyan-400/35 bg-cyan-900/10 text-cyan-100";
   return (
-    <div className={`rounded-lg border p-3 ${cls}`}>
+    <div className={`rounded-lg border p-3 transition-transform duration-150 ${cls} ${pop ? "scale-105" : "scale-100"}`}>
       <p className="text-xs opacity-80">{label}</p>
       <p className="text-xl font-bold">{value}</p>
     </div>

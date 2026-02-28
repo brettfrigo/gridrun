@@ -63,7 +63,6 @@ export default function GameSite() {
 
   const laneX = useMemo(() => [16.66, 50, 83.33], []);
   const skin = SKINS.find((s) => s.id === selectedSkin) || SKINS[0];
-  const unlockedSkins = SKINS.filter((s) => best >= s.unlock);
 
   const playBeep = (freq = 440, duration = 0.08, type = "sine", gain = 0.035) => {
     if (!soundOn || typeof window === "undefined") return;

@@ -1,36 +1,42 @@
-# Freelance Nudge (MVP)
+# Freelance Nudge
 
 Freelance Nudge is a lightweight invoicing follow-up assistant for freelancers and small agencies.
 
-## Problem
-Freelancers lose cash flow because they procrastinate uncomfortable follow-up emails.
+## What’s included
 
-## Solution
-Track outstanding invoices and generate context-aware reminder emails (friendly → firm → final) in one click.
+- **Dashboard app** (`index.html`) for invoice tracking + reminder generation
+- **Mock API backend** (`server/`) with invoice CRUD and reminder generation
+- **Supabase-ready schema docs** (`server/docs/supabase-schema.sql`)
+- **Landing page** (`site/`) with pricing, FAQ, and CTA
 
-## MVP Features
-- Add and track unpaid invoices
-- Aging visibility (days late + urgency status)
-- One-click reminder email generation
-- Mark invoices paid
-- Local storage (no backend required)
+## Features
 
-## Monetization Plan
-- **Free:** Track up to 10 invoices
-- **Pro ($9/mo):** Unlimited invoices, templates, PDF export, auto-reminder scheduling
-- **Team ($29/mo):** Multi-user seats, shared client ledger, reporting
+- Track outstanding invoices
+- Dashboard metrics (open count, outstanding, overdue, avg late days, collection score)
+- One-click reminder email generation (friendly → firm → final)
+- Free plan limit (10 invoices) + Pro upsell prompt
+- CSV export of invoices
 
-## ICP (Ideal Customer Profile)
-- Solo freelancers (design, dev, copywriting)
-- Boutique agencies with inconsistent receivables
-- Service businesses invoicing monthly retainers
+## Quick start (local)
 
-## Quick Start
-Open `index.html` in any browser.
+```bash
+cd products/freelance-nudge
+npm install
+npm --prefix server install
+npm run dev
+```
 
-## Next Build Steps
-1. Add Stripe Checkout and account auth
-2. Build hosted version with Supabase/Firebase backend
-3. Add reminder scheduling + Gmail send integration
-4. Add AI rewrite options for tone/localization
-5. Ship on Product Hunt + X + Indie Hackers
+- App: `http://localhost:4173`
+- API: `http://localhost:8787`
+
+## Scripts
+
+- `npm run dev` — run frontend + backend concurrently
+- `npm run dev:app` — run static app
+- `npm run dev:server` — run Express backend in watch mode
+- `npm run start:app` — run static app (prod-like)
+- `npm run start:server` — run backend (prod-like)
+
+## Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for Vercel/Netlify + Render/Railway steps.

@@ -1,0 +1,16 @@
+{
+  "name": "freelance-nudge",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n APP,API \"npm run dev:app\" \"npm run dev:server\"",
+    "dev:app": "serve -l 4173 .",
+    "dev:server": "npm --prefix server run dev",
+    "start:app": "serve -s . -l 4173",
+    "start:server": "npm --prefix server start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "serve": "^14.2.3"
+  }
+}

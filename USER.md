@@ -10,6 +10,7 @@ _Learn about the person you're helping. Update this as you go._
 - **Timezone:**
   America/Los_Angeles
 - **Notes:**
+  - Brett granted permission for auto-commit in workspace.
 
 ## Context
 

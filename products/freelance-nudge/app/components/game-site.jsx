@@ -43,6 +43,9 @@ export default function GameSite() {
   const [shield, setShield] = useState(0);
   const [boost, setBoost] = useState(0);
   const [combo, setCombo] = useState(1);
+  const [orbCount, setOrbCount] = useState(0);
+  const [bossesCleared, setBossesCleared] = useState(0);
+  const [missionRewarded, setMissionRewarded] = useState(false);
   const [mode, setMode] = useState("classic");
   const [message, setMessage] = useState("ENTER THE GRID — press Start or Space");
   const [dangerFlash, setDangerFlash] = useState(false);
@@ -109,6 +112,9 @@ export default function GameSite() {
     setShield(1);
     setBoost(0);
     setCombo(1);
+    setOrbCount(0);
+    setBossesCleared(0);
+    setMissionRewarded(false);
     setDangerFlash(false);
     setBossMode(false);
     setNextBossIn(30);
@@ -174,6 +180,7 @@ export default function GameSite() {
       }
       if (inBoss && ts >= bossUntil.current) {
         setBossMode(false);
+        setBossesCleared((b) => b + 1);
         setMessage("Boss wave cleared. Keep running.");
       }
 
@@ -226,6 +233,7 @@ export default function GameSite() {
       setOrbs((prev) => prev.filter((o) => !(o.lane === playerLane && o.y > 80 && o.y < 96)));
       setBoost((b) => Math.min(4.8, b + 1.2));
       setCombo((c) => Math.min(4.5, c + 0.35));
+      setOrbCount((c) => c + 1);
       setScore((s) => s + 150);
       setMessage("ENERGY ORB COLLECTED ⚡ COMBO UP");
       playBeep(860, 0.06, "triangle", 0.03);
@@ -233,6 +241,15 @@ export default function GameSite() {
 
     const nearMiss = obstacles.some((o) => o.lane !== playerLane && o.y > 90 && o.y < 98);
     if (nearMiss) setCombo((c) => Math.min(4.8, c + 0.02));
+
+    const missionsDoneNow = score >= 2500 && orbCount >= 8 && bossesCleared >= 1;
+    if (missionsDoneNow && !missionRewarded) {
+      setMissionRewarded(true);
+      setShield((s) => Math.max(1, s));
+      setScore((s) => s + 750);
+      setMessage("MISSION COMPLETE: +750 score and shield recharge");
+      playBeep(980, 0.09, "triangle", 0.04);
+    }
 
     const hitObstacle = obstacles.find((o) => o.lane === playerLane && o.y > 78 && o.y < 96);
     if (hitObstacle) {
@@ -258,10 +275,16 @@ export default function GameSite() {
         playBeep(120, 0.18, "square", 0.06);
       }
     }
-  }, [obstacles, orbs, playerLane, running, shield, score, mode, dailyBest]);
+  }, [obstacles, orbs, playerLane, running, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
+  const missions = [
+    { label: "Score 2500+", done: score >= 2500 },
+    { label: "Collect 8 orbs", done: orbCount >= 8 },
+    { label: "Clear 1 boss wave", done: bossesCleared >= 1 }
+  ];
+  const allMissionsDone = missions.every((m) => m.done);
 
   return (
     <main className="min-h-screen bg-black text-cyan-100 p-6">
@@ -323,6 +346,10 @@ export default function GameSite() {
               </div>
               <div className="mt-3 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Shield</span><span>{shield > 0 ? "🛡️ Online" : "Offline"}</span></div>
               <div className="mt-1 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Next boss</span><span>{nextBossIn}s</span></div>
+              <div className="mt-3 rounded-lg border border-cyan-500/25 p-2 text-xs">
+                <p className="mb-1 font-semibold text-cyan-200">Run Missions</p>
+                {missions.map((m) => <div key={m.label} className="flex items-center justify-between"><span>{m.label}</span><span>{m.done ? "✅" : "⬜"}</span></div>)}
+              </div>
               <p className="mt-3 text-sm text-cyan-100/80">{message}</p>
               <button onClick={start} className="mt-4 w-full rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">{running ? "Reboot Run" : "Start Run"}</button>
             </div>

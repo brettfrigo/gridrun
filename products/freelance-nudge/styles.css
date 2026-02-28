@@ -1,0 +1,43 @@
+* { box-sizing: border-box; }
+body {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: #0b1020;
+  color: #e8ecff;
+  margin: 0;
+  padding: 1.5rem;
+}
+header, footer { text-align: center; margin-bottom: 1.5rem; }
+main {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+.card {
+  background: #141b34;
+  border: 1px solid #2b355f;
+  border-radius: 12px;
+  padding: 1rem;
+}
+form { display: grid; gap: 0.6rem; }
+label { display: grid; gap: 0.2rem; font-size: 0.9rem; }
+input, textarea, select, button {
+  border-radius: 8px;
+  border: 1px solid #374375;
+  background: #0f1530;
+  color: #eef1ff;
+  padding: 0.55rem;
+}
+button {
+  cursor: pointer;
+  background: #4f6bff;
+  border: none;
+  font-weight: 600;
+}
+button:hover { background: #3f5bfa; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { border-bottom: 1px solid #29345f; padding: 0.4rem; text-align: left; }
+.small { opacity: 0.8; font-size: 0.85rem; }
+.badge { padding: 0.2rem 0.45rem; border-radius: 999px; font-size: 0.75rem; }
+.badge.ok { background: #1f7a47; }
+.badge.warn { background: #9a6a14; }
+.badge.danger { background: #a02a3f; }

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const LANES = 3;
 const BASE_SPAWN_MS = 700;
+const BOSS_EVERY_MS = 30000;
+const LEADERBOARD_KEY = "neon-grid-leaderboard";
 
 export default function GameSite() {
   const [playerLane, setPlayerLane] = useState(1);
@@ -19,10 +21,15 @@ export default function GameSite() {
   const [message, setMessage] = useState("ENTER THE GRID — press Start or Space");
   const [dangerFlash, setDangerFlash] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [bossMode, setBossMode] = useState(false);
+  const [nextBossIn, setNextBossIn] = useState(30);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
   const lastFrame = useRef(0);
+  const runStart = useRef(0);
+  const bossUntil = useRef(0);
   const raf = useRef(null);
   const audioCtxRef = useRef(null);
 
@@ -45,6 +52,23 @@ export default function GameSite() {
     osc.stop(ctx.currentTime + duration);
   };
 
+  const saveScore = (finalScore) => {
+    const current = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]");
+    const qualifies = current.length < 5 || finalScore > current[current.length - 1].score;
+    let name = "CPU";
+    if (qualifies) {
+      const input = window.prompt("New high score! Enter initials:", "ACE");
+      name = (input || "CPU").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) || "CPU";
+    }
+
+    const next = [...current, { name, score: finalScore }]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(next));
+    setLeaderboard(next);
+  };
+
   const reset = () => {
     setPlayerLane(1);
     setObstacles([]);
@@ -55,12 +79,16 @@ export default function GameSite() {
     setBoost(0);
     setCombo(1);
     setDangerFlash(false);
+    setBossMode(false);
+    setNextBossIn(30);
     setMessage("RUNNER ONLINE");
   };
 
   const start = () => {
     reset();
     const now = performance.now();
+    runStart.current = now;
+    bossUntil.current = 0;
     lastSpawn.current = now;
     lastOrbSpawn.current = now;
     lastFrame.current = now;
@@ -71,6 +99,7 @@ export default function GameSite() {
   useEffect(() => {
     const savedBest = Number(localStorage.getItem("neon-grid-best") || "0");
     if (savedBest > 0) setBest(savedBest);
+    setLeaderboard(JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]"));
   }, []);
 
   useEffect(() => {
@@ -94,28 +123,53 @@ export default function GameSite() {
       const dt = ts - lastFrame.current;
       lastFrame.current = ts;
 
-      const spawnRate = Math.max(160, BASE_SPAWN_MS - speed * 72 - Math.min(boost, 3) * 70);
-      if (ts - lastSpawn.current >= spawnRate) {
-        lastSpawn.current = ts;
-        const lane = Math.floor(Math.random() * LANES);
-        const type = Math.random() < 0.2 ? "wall" : "block";
-        setObstacles((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -10, type }]);
+      const elapsed = ts - runStart.current;
+      const inBoss = ts < bossUntil.current;
+
+      if (!inBoss && elapsed > 0 && Math.floor(elapsed / BOSS_EVERY_MS) > Math.floor((elapsed - dt) / BOSS_EVERY_MS)) {
+        bossUntil.current = ts + 7000;
+        setBossMode(true);
+        setMessage("BOSS WAVE INCOMING ☠️");
+        playBeep(140, 0.2, "sawtooth", 0.06);
+      }
+      if (inBoss && ts >= bossUntil.current) {
+        setBossMode(false);
+        setMessage("Boss wave cleared. Keep running.");
       }
 
-      if (ts - lastOrbSpawn.current >= 2200) {
+      const spawnRate = inBoss
+        ? Math.max(95, BASE_SPAWN_MS - speed * 95)
+        : Math.max(160, BASE_SPAWN_MS - speed * 72 - Math.min(boost, 3) * 70);
+
+      if (ts - lastSpawn.current >= spawnRate) {
+        lastSpawn.current = ts;
+
+        if (inBoss && Math.random() < 0.55) {
+          const gap = Math.floor(Math.random() * LANES);
+          const wave = [0, 1, 2].filter((l) => l !== gap).map((lane) => ({ id: crypto.randomUUID(), lane, y: -10, type: "wall" }));
+          setObstacles((prev) => [...prev, ...wave]);
+        } else {
+          const lane = Math.floor(Math.random() * LANES);
+          const type = Math.random() < 0.2 ? "wall" : "block";
+          setObstacles((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -10, type }]);
+        }
+      }
+
+      if (ts - lastOrbSpawn.current >= (inBoss ? 3200 : 2200)) {
         lastOrbSpawn.current = ts;
         const lane = Math.floor(Math.random() * LANES);
         setOrbs((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -8 }]);
       }
 
-      const velocity = dt * (0.026 + speed * 0.007 + Math.min(boost, 3) * 0.01);
+      const velocity = dt * (0.026 + speed * 0.007 + Math.min(boost, 3) * 0.01 + (inBoss ? 0.012 : 0));
       setObstacles((prev) => prev.map((o) => ({ ...o, y: o.y + velocity })).filter((o) => o.y < 115));
       setOrbs((prev) => prev.map((o) => ({ ...o, y: o.y + velocity * 0.88 })).filter((o) => o.y < 115));
 
-      setScore((s) => s + Math.floor((dt / 16) * (1 + boost * 0.4) * combo));
+      setScore((s) => s + Math.floor((dt / 16) * (1 + boost * 0.4) * combo * (inBoss ? 1.35 : 1)));
       setSpeed((s) => Math.min(11, s + dt * 0.000048));
       setBoost((b) => Math.max(0, b - dt * 0.00032));
       setCombo((c) => Math.max(1, c - dt * 0.00011));
+      setNextBossIn(Math.max(0, Math.ceil((BOSS_EVERY_MS - (elapsed % BOSS_EVERY_MS)) / 1000)));
 
       raf.current = requestAnimationFrame(loop);
     };
@@ -131,16 +185,14 @@ export default function GameSite() {
     if (gotOrb) {
       setOrbs((prev) => prev.filter((o) => !(o.lane === playerLane && o.y > 80 && o.y < 96)));
       setBoost((b) => Math.min(4.8, b + 1.2));
-      setCombo((c) => Math.min(4, c + 0.35));
+      setCombo((c) => Math.min(4.5, c + 0.35));
       setScore((s) => s + 150);
       setMessage("ENERGY ORB COLLECTED ⚡ COMBO UP");
       playBeep(860, 0.06, "triangle", 0.03);
     }
 
     const nearMiss = obstacles.some((o) => o.lane !== playerLane && o.y > 90 && o.y < 98);
-    if (nearMiss) {
-      setCombo((c) => Math.min(4.5, c + 0.02));
-    }
+    if (nearMiss) setCombo((c) => Math.min(4.8, c + 0.02));
 
     const hitObstacle = obstacles.find((o) => o.lane === playerLane && o.y > 78 && o.y < 96);
     if (hitObstacle) {
@@ -153,7 +205,9 @@ export default function GameSite() {
         playBeep(180, 0.1, "sawtooth", 0.05);
       } else {
         setRunning(false);
-        setBest((b) => Math.max(b, score));
+        const final = score;
+        setBest((b) => Math.max(b, final));
+        saveScore(final);
         setMessage("DEREZZED. Press Start to jack back in.");
         setDangerFlash(true);
         playBeep(120, 0.18, "square", 0.06);
@@ -186,6 +240,12 @@ export default function GameSite() {
               <div className="absolute inset-0 opacity-35" style={{ backgroundImage: "linear-gradient(to bottom, rgba(34,211,238,0.2) 1px, transparent 1px)", backgroundSize: "100% 30px" }} />
               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(to right, rgba(217,70,239,0.2) 1px, transparent 1px)", backgroundSize: "44px 100%" }} />
 
+              {bossMode && (
+                <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-rose-400/60 bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-200">
+                  BOSS WAVE
+                </div>
+              )}
+
               {[0, 1, 2].map((lane) => (
                 <div key={lane} className="absolute top-0 bottom-0 w-px bg-cyan-400/30" style={{ left: `${laneX[lane]}%` }} />
               ))}
@@ -199,23 +259,13 @@ export default function GameSite() {
               ))}
 
               {orbs.map((o) => (
-                <div
-                  key={o.id}
-                  className="absolute -translate-x-1/2 h-6 w-6 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]"
-                  style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }}
-                />
+                <div key={o.id} className="absolute -translate-x-1/2 h-6 w-6 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]" style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />
               ))}
 
-              <div
-                className="absolute -translate-x-1/2 h-12 w-16 rounded-lg bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,.8)] transition-all"
-                style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }}
-              />
+              <div className="absolute -translate-x-1/2 h-12 w-16 rounded-lg bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,.8)] transition-all" style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
 
               {shield > 0 && (
-                <div
-                  className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]"
-                  style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }}
-                />
+                <div className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]" style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }} />
               )}
             </div>
 
@@ -240,6 +290,10 @@ export default function GameSite() {
                 <span className="text-cyan-200/80">Shield</span>
                 <span>{shield > 0 ? "🛡️ Online" : "Offline"}</span>
               </div>
+              <div className="mt-1 flex items-center justify-between text-sm">
+                <span className="text-cyan-200/80">Next boss</span>
+                <span>{nextBossIn}s</span>
+              </div>
               <p className="mt-3 text-sm text-cyan-100/80">{message}</p>
               <button onClick={start} className="mt-4 w-full rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">
                 {running ? "Reboot Run" : "Start Run"}
@@ -247,14 +301,15 @@ export default function GameSite() {
             </div>
 
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">
-              <h3 className="font-semibold text-cyan-200">Controls</h3>
-              <ul className="mt-2 text-sm text-cyan-100/80 list-disc list-inside space-y-1">
-                <li>Move: ← → or A / D</li>
-                <li>Start: Space or button</li>
-                <li>Collect cyan orbs for boost + combo</li>
-                <li>Near misses grow combo slowly</li>
-                <li>Shield blocks one collision</li>
-              </ul>
+              <h3 className="font-semibold text-cyan-200">Top runners</h3>
+              <ol className="mt-2 space-y-1 text-sm text-cyan-100/85">
+                {leaderboard.length ? leaderboard.map((entry, idx) => (
+                  <li key={`${entry.name}-${entry.score}-${idx}`} className="flex items-center justify-between border-b border-cyan-500/20 py-1">
+                    <span>#{idx + 1} {entry.name}</span>
+                    <strong>{entry.score}</strong>
+                  </li>
+                )) : <li className="text-cyan-100/60">No scores yet. Be the first.</li>}
+              </ol>
             </div>
           </aside>
         </section>

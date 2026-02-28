@@ -14,6 +14,6 @@
 - Added `package.json` scripts for local app/server development.
 
 ## Remaining
-- Wire frontend to backend API (currently frontend remains localStorage-first MVP).
 - Add auth + multi-user support for hosted production.
 - Add automated tests and CI checks.
+- Add edit/delete UI controls (backend endpoints exist, frontend currently supports create/list/mark paid/reminder).

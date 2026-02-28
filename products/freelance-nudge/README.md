@@ -11,11 +11,12 @@ Freelance Nudge is a lightweight invoicing follow-up assistant for freelancers a
 
 ## Features
 
-- Track outstanding invoices
+- Track outstanding invoices (via backend API)
 - Dashboard metrics (open count, outstanding, overdue, avg late days, collection score)
 - One-click reminder email generation (friendly → firm → final)
 - Free plan limit (10 invoices) + Pro upsell prompt
 - CSV export of invoices
+- Mark invoices paid (syncs to backend)
 
 ## Quick start (local)
 
@@ -28,6 +29,8 @@ npm run dev
 
 - App: `http://localhost:4173`
 - API: `http://localhost:8787`
+
+By default the app calls `http://localhost:8787`. You can override it by setting `window.FN_API_URL` before loading `app.js`.
 
 ## Scripts
 

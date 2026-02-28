@@ -51,6 +51,22 @@ button.ghost { background: transparent; border: 1px solid #4f6bff; }
   padding: 0.6rem 0.8rem;
   font-size: 0.9rem;
 }
+.status {
+  margin: 0.7rem auto 0;
+  max-width: 660px;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+.status.info {
+  background: #132042;
+  border-color: #2e488b;
+}
+.status.error {
+  background: #3a1220;
+  border-color: #8f3351;
+}
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));

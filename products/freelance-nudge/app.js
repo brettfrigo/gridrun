@@ -1,5 +1,6 @@
-const STORAGE_KEY = "freelance-nudge-invoices";
 const FREE_LIMIT = 10;
+const DEFAULT_API_BASE = "http://localhost:8787";
+const API_BASE = (window.FN_API_URL || localStorage.getItem("freelance-nudge-api-base") || DEFAULT_API_BASE).replace(/\/$/, "");
 
 const form = document.getElementById("invoiceForm");
 const table = document.getElementById("invoiceTable");
@@ -12,9 +13,25 @@ const proModal = document.getElementById("proModal");
 const closeModal = document.getElementById("closeModal");
 const saveInvoiceBtn = document.getElementById("saveInvoiceBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
+const footer = document.querySelector("footer p");
 
-const loadInvoices = () => JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-const saveInvoices = (list) => localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+let invoices = [];
+
+const statusEl = document.createElement("div");
+statusEl.className = "status";
+statusEl.style.display = "none";
+document.querySelector("header")?.appendChild(statusEl);
+
+const showStatus = (message, kind = "info") => {
+  statusEl.textContent = message;
+  statusEl.className = `status ${kind}`;
+  statusEl.style.display = "block";
+};
+
+const clearStatus = () => {
+  statusEl.style.display = "none";
+  statusEl.textContent = "";
+};
 
 const currency = (n) => `$${Number(n).toFixed(2)}`;
 
@@ -25,21 +42,15 @@ const daysLate = (dueDate) => {
   return Math.max(diff, 0);
 };
 
-const toneFor = (lateDays) => {
-  if (lateDays >= 30) return "final";
-  if (lateDays >= 7) return "firm";
-  return "friendly";
-};
-
 const statusBadge = (lateDays) => {
   if (lateDays >= 30) return '<span class="badge danger">Critical</span>';
   if (lateDays >= 7) return '<span class="badge warn">Overdue</span>';
   return '<span class="badge ok">Due / Gentle</span>';
 };
 
-const toCsv = (invoices) => {
+const toCsv = (rows) => {
   const header = ["clientName", "clientEmail", "invoiceNumber", "amount", "dueDate", "daysLate"];
-  const rows = invoices.map((i) => [
+  const values = rows.map((i) => [
     i.clientName,
     i.clientEmail,
     i.invoiceNumber,
@@ -48,16 +59,16 @@ const toCsv = (invoices) => {
     String(daysLate(i.dueDate))
   ]);
 
-  const escaped = [header, ...rows].map((row) => row
+  const escaped = [header, ...values].map((row) => row
     .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
     .join(","));
 
   return escaped.join("\n");
 };
 
-const downloadCsv = (invoices) => {
-  if (!invoices.length) return;
-  const blob = new Blob([toCsv(invoices)], { type: "text/csv;charset=utf-8;" });
+const downloadCsv = (rows) => {
+  if (!rows.length) return;
+  const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -71,6 +82,45 @@ const downloadCsv = (invoices) => {
 const openProModal = () => proModal.classList.remove("hidden");
 const closeProModal = () => proModal.classList.add("hidden");
 
+const fetchJson = async (path, options = {}) => {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || `Request failed (${response.status})`);
+  }
+
+  return payload;
+};
+
+const api = {
+  listInvoices: async () => {
+    const payload = await fetchJson("/api/invoices");
+    return payload.data || [];
+  },
+  createInvoice: async (invoice) => {
+    const payload = await fetchJson("/api/invoices", {
+      method: "POST",
+      body: JSON.stringify(invoice)
+    });
+    return payload.data;
+  },
+  payInvoice: async (id) => {
+    const payload = await fetchJson(`/api/invoices/${id}/pay`, { method: "PATCH" });
+    return payload.data;
+  },
+  generateReminder: async (invoiceId) => {
+    const payload = await fetchJson("/api/reminders/generate", {
+      method: "POST",
+      body: JSON.stringify({ invoiceId })
+    });
+    return payload.data;
+  }
+};
+
 const renderPlan = (invoiceCount) => {
   const left = Math.max(FREE_LIMIT - invoiceCount, 0);
   const reached = invoiceCount >= FREE_LIMIT;
@@ -83,15 +133,15 @@ const renderPlan = (invoiceCount) => {
   saveInvoiceBtn.disabled = reached;
 };
 
-const renderMetrics = (invoices) => {
-  const overdue = invoices.filter(i => daysLate(i.dueDate) > 0);
-  const totalOutstanding = invoices.reduce((sum, i) => sum + Number(i.amount), 0);
+const renderMetrics = (rows) => {
+  const overdue = rows.filter((i) => daysLate(i.dueDate) > 0);
+  const totalOutstanding = rows.reduce((sum, i) => sum + Number(i.amount), 0);
   const overdueAmount = overdue.reduce((sum, i) => sum + Number(i.amount), 0);
   const avgDaysLate = overdue.length ? overdue.reduce((sum, i) => sum + daysLate(i.dueDate), 0) / overdue.length : 0;
   const collectionScore = Math.max(0, Math.round(100 - Math.min(80, avgDaysLate * 2 + overdue.length * 3)));
 
   summary.innerHTML = `
-    <article class="metric"><h3>${invoices.length}</h3><p>Open Invoices</p></article>
+    <article class="metric"><h3>${rows.length}</h3><p>Open Invoices</p></article>
     <article class="metric"><h3>${currency(totalOutstanding)}</h3><p>Total Outstanding</p></article>
     <article class="metric"><h3>${currency(overdueAmount)}</h3><p>Overdue Amount</p></article>
     <article class="metric"><h3>${avgDaysLate.toFixed(1)}</h3><p>Avg Days Late</p></article>
@@ -99,23 +149,34 @@ const renderMetrics = (invoices) => {
   `;
 };
 
-const render = () => {
-  const invoices = loadInvoices();
-  table.innerHTML = "";
-
-  renderPlan(invoices.length);
-  renderMetrics(invoices);
-
+const renderComposer = () => {
   composer.innerHTML = `<label>Invoice to remind
     <select id="selectedInvoice">
       <option value="">Select an invoice...</option>
-      ${invoices.map((i, idx) => `<option value="${idx}">${i.clientName} — #${i.invoiceNumber}</option>`).join("")}
+      ${invoices.map((i) => `<option value="${i.id}">${i.clientName} — #${i.invoiceNumber}</option>`).join("")}
     </select>
   </label>
   <button id="generateBtn" type="button">Generate Reminder</button>`;
 
-  invoices.forEach((invoice, idx) => {
-    const late = daysLate(invoice.dueDate);
+  document.getElementById("generateBtn").addEventListener("click", async () => {
+    const selectedId = document.getElementById("selectedInvoice").value;
+    if (!selectedId) return;
+
+    try {
+      clearStatus();
+      const reminder = await api.generateReminder(selectedId);
+      emailOutput.value = `Subject: ${reminder.subject}\n\n${reminder.body}`;
+    } catch (error) {
+      showStatus(`Could not generate reminder: ${error.message}`, "error");
+    }
+  });
+};
+
+const renderTable = () => {
+  table.innerHTML = "";
+
+  invoices.forEach((invoice) => {
+    const late = Number(invoice.lateDays ?? daysLate(invoice.dueDate));
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${invoice.clientName}</td>
@@ -123,42 +184,40 @@ const render = () => {
       <td>${currency(invoice.amount)}</td>
       <td>${late}</td>
       <td>${statusBadge(late)}</td>
-      <td><button data-paid="${idx}">Mark Paid</button></td>
+      <td><button data-paid="${invoice.id}">Mark Paid</button></td>
     `;
     table.appendChild(tr);
   });
 
-  document.querySelectorAll("button[data-paid]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const invoices = loadInvoices();
-      invoices.splice(Number(btn.dataset.paid), 1);
-      saveInvoices(invoices);
-      render();
+  document.querySelectorAll("button[data-paid]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        clearStatus();
+        await api.payInvoice(btn.dataset.paid);
+        await refreshInvoices();
+      } catch (error) {
+        showStatus(`Could not update invoice: ${error.message}`, "error");
+      }
     });
-  });
-
-  document.getElementById("generateBtn").addEventListener("click", () => {
-    const selected = document.getElementById("selectedInvoice").value;
-    if (selected === "") return;
-    const invoice = loadInvoices()[Number(selected)];
-    const late = daysLate(invoice.dueDate);
-    const tone = toneFor(late);
-
-    const opener = {
-      friendly: `Hope you're doing well — quick note that invoice #${invoice.invoiceNumber} is now due.`,
-      firm: `I'm following up on invoice #${invoice.invoiceNumber}, which is now ${late} days overdue.`,
-      final: `Final reminder: invoice #${invoice.invoiceNumber} is ${late} days overdue and requires immediate payment.`
-    };
-
-    const body = `Subject: Invoice #${invoice.invoiceNumber} — payment reminder\n\nHi ${invoice.clientName},\n\n${opener[tone]}\n\nAmount due: ${currency(invoice.amount)}\nOriginal due date: ${invoice.dueDate}\n\nPlease let me know if payment has already been sent. If not, could you share an expected payment date today?\n\nThanks,\n[Your Name]`;
-    emailOutput.value = body;
   });
 };
 
-form.addEventListener("submit", (e) => {
+const render = () => {
+  renderPlan(invoices.length);
+  renderMetrics(invoices);
+  renderComposer();
+  renderTable();
+};
+
+const refreshInvoices = async () => {
+  const all = await api.listInvoices();
+  invoices = all.filter((i) => i.status !== "paid");
+  render();
+};
+
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const invoices = loadInvoices();
   if (invoices.length >= FREE_LIMIT) {
     openProModal();
     return;
@@ -169,13 +228,18 @@ form.addEventListener("submit", (e) => {
     clientEmail: document.getElementById("clientEmail").value.trim(),
     invoiceNumber: document.getElementById("invoiceNumber").value.trim(),
     amount: Number(document.getElementById("amount").value),
-    dueDate: document.getElementById("dueDate").value
+    dueDate: document.getElementById("dueDate").value,
+    status: "unpaid"
   };
 
-  invoices.push(invoice);
-  saveInvoices(invoices);
-  form.reset();
-  render();
+  try {
+    clearStatus();
+    await api.createInvoice(invoice);
+    form.reset();
+    await refreshInvoices();
+  } catch (error) {
+    showStatus(`Could not save invoice: ${error.message}`, "error");
+  }
 });
 
 copyBtn.addEventListener("click", async () => {
@@ -185,8 +249,20 @@ copyBtn.addEventListener("click", async () => {
   setTimeout(() => (copyBtn.textContent = "Copy Email"), 1200);
 });
 
-exportCsvBtn.addEventListener("click", () => downloadCsv(loadInvoices()));
+exportCsvBtn.addEventListener("click", () => downloadCsv(invoices));
 closeModal.addEventListener("click", closeProModal);
 document.getElementById("upgradeCta").addEventListener("click", closeProModal);
 
-render();
+const boot = async () => {
+  try {
+    await refreshInvoices();
+    footer.textContent = `Connected to API at ${API_BASE}`;
+  } catch (error) {
+    showStatus(`Could not connect to API at ${API_BASE}. Start the server with npm run dev:server`, "error");
+    if (footer) footer.textContent = `API offline (${API_BASE})`;
+    invoices = [];
+    render();
+  }
+};
+
+boot();

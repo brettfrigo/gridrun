@@ -7,6 +7,7 @@ const BASE_SPAWN_MS = 700;
 const BOSS_EVERY_MS = 30000;
 const LEADERBOARD_KEY = "neon-grid-leaderboard";
 const SKIN_KEY = "neon-grid-skin";
+const STREAK_KEY = "neon-grid-streak";
 
 const SKINS = [
   { id: "cyan", name: "Cyan Core", unlock: 0, player: "bg-cyan-400", glow: "shadow-[0_0_24px_rgba(34,211,238,.8)]" },
@@ -54,6 +55,7 @@ export default function GameSite() {
   const [nextBossIn, setNextBossIn] = useState(30);
   const [leaderboard, setLeaderboard] = useState([]);
   const [selectedSkin, setSelectedSkin] = useState("cyan");
+  const [runStreak, setRunStreak] = useState(0);
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
@@ -142,6 +144,7 @@ export default function GameSite() {
 
     const skinSaved = localStorage.getItem(SKIN_KEY) || "cyan";
     setSelectedSkin(skinSaved);
+    setRunStreak(Number(localStorage.getItem(STREAK_KEY) || "0"));
   }, []);
 
   useEffect(() => {
@@ -151,6 +154,10 @@ export default function GameSite() {
   useEffect(() => {
     localStorage.setItem(SKIN_KEY, selectedSkin);
   }, [selectedSkin]);
+
+  useEffect(() => {
+    localStorage.setItem(STREAK_KEY, String(runStreak));
+  }, [runStreak]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -269,8 +276,13 @@ export default function GameSite() {
           setDailyBest(nextDaily);
           localStorage.setItem(`neon-grid-daily-${todayKey()}`, String(nextDaily));
         }
+        if (final >= 2000) {
+          setRunStreak((s) => s + 1);
+        } else {
+          setRunStreak(0);
+        }
         saveScore(final);
-        setMessage("DEREZZED. Press Start to jack back in.");
+        setMessage(final >= 2000 ? "DEREZZED — streak increased. Run it back." : "DEREZZED. Streak reset. Press Start.");
         setDangerFlash(true);
         playBeep(120, 0.18, "square", 0.06);
       }
@@ -343,6 +355,7 @@ export default function GameSite() {
                 <Stat label="Boost" value={`${boost.toFixed(1)}x`} tone="fuchsia" />
                 <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" />
                 <Stat label="Tier" value={tier} tone="fuchsia" />
+                <Stat label="Streak" value={`${runStreak}`} tone="cyan" />
               </div>
               <div className="mt-3 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Shield</span><span>{shield > 0 ? "🛡️ Online" : "Offline"}</span></div>
               <div className="mt-1 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Next boss</span><span>{nextBossIn}s</span></div>

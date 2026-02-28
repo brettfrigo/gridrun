@@ -11,6 +11,10 @@
   - Filter/sort controls and CSV export
   - Free plan gate + Pro modal
   - API health indicator + improved empty states
+- Phase 2 refactor:
+  - Split UI into reusable components (`app/components/*`)
+  - Centralized API/util logic in `app/lib/api.js`
+  - Kept production build green after modularization
 - Added landing page in `site/` with pricing, FAQ, and CTA.
 - Added local scripts for web + server dev.
 

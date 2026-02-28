@@ -468,6 +468,16 @@ export default function GameSite() {
             </div>
 
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">
+              <h3 className="font-semibold text-cyan-200">Quick controls</h3>
+              <ul className="mt-2 space-y-1 text-sm text-cyan-100/80">
+                <li><span className="text-cyan-300">Move</span>: ← → or A / D</li>
+                <li><span className="text-cyan-300">Start</span>: Space or Start Run</li>
+                <li><span className="text-cyan-300">Pause</span>: P or Pause button</li>
+                <li><span className="text-cyan-300">Risk bonus</span>: stay in center lane for 1.2x score</li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">
               <h3 className="font-semibold text-cyan-200">Last run recap</h3>
               {lastRun ? (
                 <div className="mt-2 space-y-1 text-sm text-cyan-100/85">

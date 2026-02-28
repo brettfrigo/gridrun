@@ -56,6 +56,8 @@ export default function GameSite() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [selectedSkin, setSelectedSkin] = useState("cyan");
   const [runStreak, setRunStreak] = useState(0);
+  const [peakCombo, setPeakCombo] = useState(1);
+  const [lastRun, setLastRun] = useState(null);
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
@@ -114,6 +116,7 @@ export default function GameSite() {
     setShield(1);
     setBoost(0);
     setCombo(1);
+    setPeakCombo(1);
     setOrbCount(0);
     setBossesCleared(0);
     setMissionRewarded(false);
@@ -239,7 +242,11 @@ export default function GameSite() {
     if (gotOrb) {
       setOrbs((prev) => prev.filter((o) => !(o.lane === playerLane && o.y > 80 && o.y < 96)));
       setBoost((b) => Math.min(4.8, b + 1.2));
-      setCombo((c) => Math.min(4.5, c + 0.35));
+      setCombo((c) => {
+        const next = Math.min(4.5, c + 0.35);
+        setPeakCombo((p) => Math.max(p, next));
+        return next;
+      });
       setOrbCount((c) => c + 1);
       setScore((s) => s + 150);
       setMessage("ENERGY ORB COLLECTED ⚡ COMBO UP");
@@ -247,7 +254,13 @@ export default function GameSite() {
     }
 
     const nearMiss = obstacles.some((o) => o.lane !== playerLane && o.y > 90 && o.y < 98);
-    if (nearMiss) setCombo((c) => Math.min(4.8, c + 0.02));
+    if (nearMiss) {
+      setCombo((c) => {
+        const next = Math.min(4.8, c + 0.02);
+        setPeakCombo((p) => Math.max(p, next));
+        return next;
+      });
+    }
 
     const missionsDoneNow = score >= 2500 && orbCount >= 8 && bossesCleared >= 1;
     if (missionsDoneNow && !missionRewarded) {
@@ -281,13 +294,20 @@ export default function GameSite() {
         } else {
           setRunStreak(0);
         }
+        setLastRun({
+          score: final,
+          orbs: orbCount,
+          bosses: bossesCleared,
+          peakCombo: Number(peakCombo.toFixed(1)),
+          cause: "Collision"
+        });
         saveScore(final);
         setMessage(final >= 2000 ? "DEREZZED — streak increased. Run it back." : "DEREZZED. Streak reset. Press Start.");
         setDangerFlash(true);
         playBeep(120, 0.18, "square", 0.06);
       }
     }
-  }, [obstacles, orbs, playerLane, running, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded]);
+  }, [obstacles, orbs, playerLane, running, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
@@ -385,6 +405,19 @@ export default function GameSite() {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">
+              <h3 className="font-semibold text-cyan-200">Last run recap</h3>
+              {lastRun ? (
+                <div className="mt-2 space-y-1 text-sm text-cyan-100/85">
+                  <div className="flex items-center justify-between"><span>Score</span><strong>{lastRun.score}</strong></div>
+                  <div className="flex items-center justify-between"><span>Orbs</span><strong>{lastRun.orbs}</strong></div>
+                  <div className="flex items-center justify-between"><span>Bosses cleared</span><strong>{lastRun.bosses}</strong></div>
+                  <div className="flex items-center justify-between"><span>Peak combo</span><strong>{lastRun.peakCombo}x</strong></div>
+                  <div className="flex items-center justify-between"><span>Cause</span><strong>{lastRun.cause}</strong></div>
+                </div>
+              ) : <p className="mt-2 text-sm text-cyan-100/60">No completed run yet.</p>}
             </div>
 
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">

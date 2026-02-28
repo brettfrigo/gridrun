@@ -7,9 +7,15 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="bg-glow"></div>
+
   <header>
+    <p class="eyebrow">Revenue Ops for freelancers</p>
     <h1>Freelance Nudge</h1>
-    <p>Track invoices and generate reminder emails that get you paid.</p>
+    <p>Track invoices and generate reminder emails that get you paid, faster.</p>
+    <div class="header-meta">
+      <span id="apiHealth" class="health-pill">Checking API…</span>
+    </div>
     <div id="planBanner" class="plan-banner"></div>
   </header>
 
@@ -33,7 +39,21 @@
     </section>
 
     <section class="card">
-      <h2>Outstanding Invoices</h2>
+      <div class="section-head">
+        <h2>Outstanding Invoices</h2>
+        <div class="toolbar">
+          <label class="inline"><input id="overdueOnly" type="checkbox" /> Overdue only</label>
+          <label class="inline">Sort
+            <select id="sortBy">
+              <option value="late-desc">Most overdue</option>
+              <option value="late-asc">Least overdue</option>
+              <option value="amount-desc">Amount high → low</option>
+              <option value="amount-asc">Amount low → high</option>
+              <option value="due-asc">Due date soonest</option>
+            </select>
+          </label>
+        </div>
+      </div>
       <table>
         <thead>
           <tr>
@@ -47,11 +67,12 @@
         </thead>
         <tbody id="invoiceTable"></tbody>
       </table>
+      <p id="emptyState" class="small empty hidden">No invoices yet. Add one to start tracking.</p>
     </section>
 
     <section class="card">
       <h2>Email Generator</h2>
-      <p class="small">Select an invoice reminder and click “Generate”.</p>
+      <p class="small">Pick an invoice and generate a ready-to-send follow-up email.</p>
       <div id="composer"></div>
       <textarea id="emailOutput" rows="14" placeholder="Generated email will appear here..."></textarea>
       <button id="copyBtn" type="button">Copy Email</button>
@@ -61,7 +82,7 @@
   <div id="proModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content">
       <h3>Free plan limit reached</h3>
-      <p>You can track up to 10 invoices on the free plan. Upgrade to Pro for unlimited invoices, templates, and automation.</p>
+      <p>You can track up to 10 invoices on free. Upgrade to Pro for unlimited invoices, templates, and automations.</p>
       <div class="modal-actions">
         <button id="upgradeCta" type="button">Upgrade to Pro</button>
         <button id="closeModal" class="ghost" type="button">Maybe later</button>

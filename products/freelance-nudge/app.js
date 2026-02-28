@@ -14,6 +14,10 @@ const closeModal = document.getElementById("closeModal");
 const saveInvoiceBtn = document.getElementById("saveInvoiceBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const footer = document.querySelector("footer p");
+const overdueOnly = document.getElementById("overdueOnly");
+const sortBy = document.getElementById("sortBy");
+const emptyState = document.getElementById("emptyState");
+const apiHealth = document.getElementById("apiHealth");
 
 let invoices = [];
 
@@ -31,6 +35,11 @@ const showStatus = (message, kind = "info") => {
 const clearStatus = () => {
   statusEl.style.display = "none";
   statusEl.textContent = "";
+};
+
+const setApiHealth = (ok, text) => {
+  apiHealth.textContent = text;
+  apiHealth.className = `health-pill ${ok ? "ok" : "error"}`;
 };
 
 const currency = (n) => `$${Number(n).toFixed(2)}`;
@@ -97,6 +106,7 @@ const fetchJson = async (path, options = {}) => {
 };
 
 const api = {
+  health: async () => fetchJson("/health"),
   listInvoices: async () => {
     const payload = await fetchJson("/api/invoices");
     return payload.data || [];
@@ -149,14 +159,33 @@ const renderMetrics = (rows) => {
   `;
 };
 
-const renderComposer = () => {
+const getVisibleInvoices = () => {
+  let rows = [...invoices];
+
+  if (overdueOnly.checked) {
+    rows = rows.filter((i) => daysLate(i.dueDate) > 0);
+  }
+
+  const by = sortBy.value;
+  rows.sort((a, b) => {
+    if (by === "late-asc") return daysLate(a.dueDate) - daysLate(b.dueDate);
+    if (by === "amount-desc") return Number(b.amount) - Number(a.amount);
+    if (by === "amount-asc") return Number(a.amount) - Number(b.amount);
+    if (by === "due-asc") return new Date(a.dueDate) - new Date(b.dueDate);
+    return daysLate(b.dueDate) - daysLate(a.dueDate);
+  });
+
+  return rows;
+};
+
+const renderComposer = (rows) => {
   composer.innerHTML = `<label>Invoice to remind
     <select id="selectedInvoice">
       <option value="">Select an invoice...</option>
-      ${invoices.map((i) => `<option value="${i.id}">${i.clientName} — #${i.invoiceNumber}</option>`).join("")}
+      ${rows.map((i) => `<option value="${i.id}">${i.clientName} — #${i.invoiceNumber}</option>`).join("")}
     </select>
   </label>
-  <button id="generateBtn" type="button">Generate Reminder</button>`;
+  <button id="generateBtn" type="button" ${rows.length ? "" : "disabled"}>Generate Reminder</button>`;
 
   document.getElementById("generateBtn").addEventListener("click", async () => {
     const selectedId = document.getElementById("selectedInvoice").value;
@@ -172,10 +201,11 @@ const renderComposer = () => {
   });
 };
 
-const renderTable = () => {
+const renderTable = (rows) => {
   table.innerHTML = "";
+  emptyState.classList.toggle("hidden", rows.length > 0);
 
-  invoices.forEach((invoice) => {
+  rows.forEach((invoice) => {
     const late = Number(invoice.lateDays ?? daysLate(invoice.dueDate));
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -205,8 +235,9 @@ const renderTable = () => {
 const render = () => {
   renderPlan(invoices.length);
   renderMetrics(invoices);
-  renderComposer();
-  renderTable();
+  const visible = getVisibleInvoices();
+  renderComposer(visible);
+  renderTable(visible);
 };
 
 const refreshInvoices = async () => {
@@ -249,15 +280,21 @@ copyBtn.addEventListener("click", async () => {
   setTimeout(() => (copyBtn.textContent = "Copy Email"), 1200);
 });
 
-exportCsvBtn.addEventListener("click", () => downloadCsv(invoices));
+overdueOnly.addEventListener("change", render);
+sortBy.addEventListener("change", render);
+
+exportCsvBtn.addEventListener("click", () => downloadCsv(getVisibleInvoices()));
 closeModal.addEventListener("click", closeProModal);
 document.getElementById("upgradeCta").addEventListener("click", closeProModal);
 
 const boot = async () => {
   try {
+    await api.health();
+    setApiHealth(true, "API online");
     await refreshInvoices();
     footer.textContent = `Connected to API at ${API_BASE}`;
   } catch (error) {
+    setApiHealth(false, "API offline");
     showStatus(`Could not connect to API at ${API_BASE}. Start the server with npm run dev:server`, "error");
     if (footer) footer.textContent = `API offline (${API_BASE})`;
     invoices = [];

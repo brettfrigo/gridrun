@@ -11,6 +11,7 @@ main {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
 }
 .card {
   background: #141b34;
@@ -18,6 +19,7 @@ main {
   border-radius: 12px;
   padding: 1rem;
 }
+.metrics-card { grid-column: span 2; }
 form { display: grid; gap: 0.6rem; }
 label { display: grid; gap: 0.2rem; font-size: 0.9rem; }
 input, textarea, select, button {
@@ -34,6 +36,34 @@ button {
   font-weight: 600;
 }
 button:hover { background: #3f5bfa; }
+button:disabled { background: #555c80; cursor: not-allowed; }
+button.ghost { background: transparent; border: 1px solid #4f6bff; }
+.plan-banner {
+  margin: 1rem auto 0;
+  max-width: 660px;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  background: #101937;
+  border: 1px solid #2a3a79;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+}
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.7rem;
+}
+.metric {
+  background: #11182f;
+  border: 1px solid #27335e;
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+.metric h3 { margin: 0; font-size: 1.25rem; }
+.metric p { margin: 0.3rem 0 0; opacity: 0.85; font-size: 0.82rem; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { border-bottom: 1px solid #29345f; padding: 0.4rem; text-align: left; }
 .small { opacity: 0.8; font-size: 0.85rem; }
@@ -41,3 +71,27 @@ th, td { border-bottom: 1px solid #29345f; padding: 0.4rem; text-align: left; }
 .badge.ok { background: #1f7a47; }
 .badge.warn { background: #9a6a14; }
 .badge.danger { background: #a02a3f; }
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 24, 0.8);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.modal.hidden { display: none; }
+.modal-content {
+  max-width: 500px;
+  background: #151d39;
+  border: 1px solid #34458a;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+@media (max-width: 900px) {
+  .metrics-card { grid-column: auto; }
+}

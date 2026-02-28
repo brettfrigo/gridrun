@@ -6,6 +6,30 @@ const LANES = 3;
 const BASE_SPAWN_MS = 700;
 const BOSS_EVERY_MS = 30000;
 const LEADERBOARD_KEY = "neon-grid-leaderboard";
+const SKIN_KEY = "neon-grid-skin";
+
+const SKINS = [
+  { id: "cyan", name: "Cyan Core", unlock: 0, player: "bg-cyan-400", glow: "shadow-[0_0_24px_rgba(34,211,238,.8)]" },
+  { id: "violet", name: "Violet Flux", unlock: 1500, player: "bg-violet-400", glow: "shadow-[0_0_24px_rgba(167,139,250,.85)]" },
+  { id: "amber", name: "Amber Bolt", unlock: 3500, player: "bg-amber-400", glow: "shadow-[0_0_24px_rgba(251,191,36,.85)]" },
+  { id: "rose", name: "Rose Phantom", unlock: 6000, player: "bg-rose-400", glow: "shadow-[0_0_24px_rgba(251,113,133,.85)]" }
+];
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const hashString = (s) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+  }
+  return h >>> 0;
+};
+const mulberry32 = (a) => () => {
+  let t = (a += 0x6d2b79f5);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
 
 export default function GameSite() {
   const [playerLane, setPlayerLane] = useState(1);
@@ -14,26 +38,32 @@ export default function GameSite() {
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
+  const [dailyBest, setDailyBest] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [shield, setShield] = useState(0);
   const [boost, setBoost] = useState(0);
   const [combo, setCombo] = useState(1);
+  const [mode, setMode] = useState("classic");
   const [message, setMessage] = useState("ENTER THE GRID — press Start or Space");
   const [dangerFlash, setDangerFlash] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [bossMode, setBossMode] = useState(false);
   const [nextBossIn, setNextBossIn] = useState(30);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [selectedSkin, setSelectedSkin] = useState("cyan");
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
   const lastFrame = useRef(0);
   const runStart = useRef(0);
   const bossUntil = useRef(0);
+  const rngRef = useRef(Math.random);
   const raf = useRef(null);
   const audioCtxRef = useRef(null);
 
   const laneX = useMemo(() => [16.66, 50, 83.33], []);
+  const skin = SKINS.find((s) => s.id === selectedSkin) || SKINS[0];
+  const unlockedSkins = SKINS.filter((s) => best >= s.unlock);
 
   const playBeep = (freq = 440, duration = 0.08, type = "sine", gain = 0.035) => {
     if (!soundOn || typeof window === "undefined") return;
@@ -51,6 +81,8 @@ export default function GameSite() {
     osc.start();
     osc.stop(ctx.currentTime + duration);
   };
+
+  const random = () => (mode === "daily" ? rngRef.current() : Math.random());
 
   const saveScore = (finalScore) => {
     const current = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]");
@@ -81,7 +113,7 @@ export default function GameSite() {
     setDangerFlash(false);
     setBossMode(false);
     setNextBossIn(30);
-    setMessage("RUNNER ONLINE");
+    setMessage(mode === "daily" ? "DAILY CHALLENGE ACTIVE" : "RUNNER ONLINE");
   };
 
   const start = () => {
@@ -92,6 +124,7 @@ export default function GameSite() {
     lastSpawn.current = now;
     lastOrbSpawn.current = now;
     lastFrame.current = now;
+    rngRef.current = mulberry32(hashString(todayKey()));
     setRunning(true);
     playBeep(520, 0.07, "triangle", 0.03);
   };
@@ -100,11 +133,19 @@ export default function GameSite() {
     const savedBest = Number(localStorage.getItem("neon-grid-best") || "0");
     if (savedBest > 0) setBest(savedBest);
     setLeaderboard(JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]"));
+    setDailyBest(Number(localStorage.getItem(`neon-grid-daily-${todayKey()}`) || "0"));
+
+    const skinSaved = localStorage.getItem(SKIN_KEY) || "cyan";
+    setSelectedSkin(skinSaved);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("neon-grid-best", String(best));
   }, [best]);
+
+  useEffect(() => {
+    localStorage.setItem(SKIN_KEY, selectedSkin);
+  }, [selectedSkin]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -114,7 +155,7 @@ export default function GameSite() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [running]);
+  }, [running, mode]);
 
   useEffect(() => {
     if (!running) return;
@@ -144,20 +185,20 @@ export default function GameSite() {
       if (ts - lastSpawn.current >= spawnRate) {
         lastSpawn.current = ts;
 
-        if (inBoss && Math.random() < 0.55) {
-          const gap = Math.floor(Math.random() * LANES);
+        if (inBoss && random() < 0.55) {
+          const gap = Math.floor(random() * LANES);
           const wave = [0, 1, 2].filter((l) => l !== gap).map((lane) => ({ id: crypto.randomUUID(), lane, y: -10, type: "wall" }));
           setObstacles((prev) => [...prev, ...wave]);
         } else {
-          const lane = Math.floor(Math.random() * LANES);
-          const type = Math.random() < 0.2 ? "wall" : "block";
+          const lane = Math.floor(random() * LANES);
+          const type = random() < 0.2 ? "wall" : "block";
           setObstacles((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -10, type }]);
         }
       }
 
       if (ts - lastOrbSpawn.current >= (inBoss ? 3200 : 2200)) {
         lastOrbSpawn.current = ts;
-        const lane = Math.floor(Math.random() * LANES);
+        const lane = Math.floor(random() * LANES);
         setOrbs((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -8 }]);
       }
 
@@ -176,7 +217,7 @@ export default function GameSite() {
 
     raf.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf.current);
-  }, [running, speed, boost, combo]);
+  }, [running, speed, boost, combo, mode]);
 
   useEffect(() => {
     if (!running) return;
@@ -207,13 +248,18 @@ export default function GameSite() {
         setRunning(false);
         const final = score;
         setBest((b) => Math.max(b, final));
+        if (mode === "daily") {
+          const nextDaily = Math.max(dailyBest, final);
+          setDailyBest(nextDaily);
+          localStorage.setItem(`neon-grid-daily-${todayKey()}`, String(nextDaily));
+        }
         saveScore(final);
         setMessage("DEREZZED. Press Start to jack back in.");
         setDangerFlash(true);
         playBeep(120, 0.18, "square", 0.06);
       }
     }
-  }, [obstacles, orbs, playerLane, running, shield, score]);
+  }, [obstacles, orbs, playerLane, running, shield, score, mode, dailyBest]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
@@ -228,9 +274,13 @@ export default function GameSite() {
               <h1 className="mt-2 text-4xl font-black tracking-tight text-cyan-200">NEON GRID RUNNER</h1>
               <p className="mt-2 text-cyan-100/80">Race the light lanes. Dodge corrupt blocks. Harvest energy orbs. Don’t get derezzed.</p>
             </div>
-            <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">
-              {soundOn ? "🔊 Sound On" : "🔈 Sound Off"}
-            </button>
+            <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{soundOn ? "🔊 Sound On" : "🔈 Sound Off"}</button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <button onClick={() => setMode("classic")} className={`rounded-full px-3 py-1 ${mode === "classic" ? "bg-cyan-400 text-slate-950" : "border border-cyan-400/50"}`}>Classic</button>
+            <button onClick={() => setMode("daily")} className={`rounded-full px-3 py-1 ${mode === "daily" ? "bg-fuchsia-400 text-slate-950" : "border border-fuchsia-400/50"}`}>Daily Challenge ({todayKey()})</button>
+            <span className="rounded-full border border-cyan-400/30 px-3 py-1">Daily Best: {dailyBest}</span>
           </div>
         </header>
 
@@ -240,33 +290,19 @@ export default function GameSite() {
               <div className="absolute inset-0 opacity-35" style={{ backgroundImage: "linear-gradient(to bottom, rgba(34,211,238,0.2) 1px, transparent 1px)", backgroundSize: "100% 30px" }} />
               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(to right, rgba(217,70,239,0.2) 1px, transparent 1px)", backgroundSize: "44px 100%" }} />
 
-              {bossMode && (
-                <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-rose-400/60 bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-200">
-                  BOSS WAVE
-                </div>
-              )}
+              {bossMode && <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-rose-400/60 bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-200">BOSS WAVE</div>}
 
-              {[0, 1, 2].map((lane) => (
-                <div key={lane} className="absolute top-0 bottom-0 w-px bg-cyan-400/30" style={{ left: `${laneX[lane]}%` }} />
-              ))}
+              {[0, 1, 2].map((lane) => <div key={lane} className="absolute top-0 bottom-0 w-px bg-cyan-400/30" style={{ left: `${laneX[lane]}%` }} />)}
 
               {obstacles.map((o) => (
-                <div
-                  key={o.id}
-                  className={`absolute -translate-x-1/2 rounded-md ${o.type === "wall" ? "h-12 w-20 bg-fuchsia-500 shadow-fuchsia-500/50" : "h-10 w-16 bg-rose-500 shadow-rose-500/50"} shadow-lg`}
-                  style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }}
-                />
+                <div key={o.id} className={`absolute -translate-x-1/2 rounded-md ${o.type === "wall" ? "h-12 w-20 bg-fuchsia-500 shadow-fuchsia-500/50" : "h-10 w-16 bg-rose-500 shadow-rose-500/50"} shadow-lg`} style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />
               ))}
 
-              {orbs.map((o) => (
-                <div key={o.id} className="absolute -translate-x-1/2 h-6 w-6 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]" style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />
-              ))}
+              {orbs.map((o) => <div key={o.id} className="absolute -translate-x-1/2 h-6 w-6 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]" style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />)}
 
-              <div className="absolute -translate-x-1/2 h-12 w-16 rounded-lg bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,.8)] transition-all" style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
+              <div className={`absolute -translate-x-1/2 h-12 w-16 rounded-lg ${skin.player} ${skin.glow} transition-all`} style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
 
-              {shield > 0 && (
-                <div className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]" style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }} />
-              )}
+              {shield > 0 && <div className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]" style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }} />}
             </div>
 
             <div className="mt-3 flex items-center justify-center gap-3 md:hidden">
@@ -286,18 +322,30 @@ export default function GameSite() {
                 <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" />
                 <Stat label="Tier" value={tier} tone="fuchsia" />
               </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-cyan-200/80">Shield</span>
-                <span>{shield > 0 ? "🛡️ Online" : "Offline"}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-sm">
-                <span className="text-cyan-200/80">Next boss</span>
-                <span>{nextBossIn}s</span>
-              </div>
+              <div className="mt-3 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Shield</span><span>{shield > 0 ? "🛡️ Online" : "Offline"}</span></div>
+              <div className="mt-1 flex items-center justify-between text-sm"><span className="text-cyan-200/80">Next boss</span><span>{nextBossIn}s</span></div>
               <p className="mt-3 text-sm text-cyan-100/80">{message}</p>
-              <button onClick={start} className="mt-4 w-full rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">
-                {running ? "Reboot Run" : "Start Run"}
-              </button>
+              <button onClick={start} className="mt-4 w-full rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">{running ? "Reboot Run" : "Start Run"}</button>
+            </div>
+
+            <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">
+              <h3 className="font-semibold text-cyan-200">Skins</h3>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                {SKINS.map((s) => {
+                  const unlocked = best >= s.unlock;
+                  return (
+                    <button
+                      key={s.id}
+                      disabled={!unlocked}
+                      onClick={() => setSelectedSkin(s.id)}
+                      className={`rounded-lg border px-2 py-2 text-left ${selectedSkin === s.id ? "border-cyan-300 bg-cyan-500/10" : "border-cyan-500/30"} ${!unlocked ? "opacity-45" : ""}`}
+                    >
+                      <div className="font-semibold">{s.name}</div>
+                      <div>Unlock: {s.unlock}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/90 p-4">
@@ -319,10 +367,7 @@ export default function GameSite() {
 }
 
 function Stat({ label, value, tone = "cyan" }) {
-  const cls = tone === "fuchsia"
-    ? "border-fuchsia-400/35 bg-fuchsia-900/10 text-fuchsia-100"
-    : "border-cyan-400/35 bg-cyan-900/10 text-cyan-100";
-
+  const cls = tone === "fuchsia" ? "border-fuchsia-400/35 bg-fuchsia-900/10 text-fuchsia-100" : "border-cyan-400/35 bg-cyan-900/10 text-cyan-100";
   return (
     <div className={`rounded-lg border p-3 ${cls}`}>
       <p className="text-xs opacity-80">{label}</p>

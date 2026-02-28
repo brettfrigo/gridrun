@@ -91,15 +91,18 @@ export default function GameSite() {
   const random = () => (mode === "daily" ? rngRef.current() : Math.random());
 
   const saveScore = (finalScore) => {
+    if (finalScore <= 0) return;
+
     const current = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]");
     const qualifies = current.length < 5 || finalScore > current[current.length - 1].score;
-    let name = "CPU";
-    if (qualifies) {
-      const input = window.prompt("New high score! Enter initials:", "ACE");
-      name = (input || "CPU").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) || "CPU";
-    }
+    if (!qualifies) return;
 
-    const next = [...current, { name, score: finalScore }]
+    const savedInitials = (localStorage.getItem("neon-grid-initials") || "YOU")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 3) || "YOU";
+
+    const next = [...current, { name: savedInitials, score: finalScore }]
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
 

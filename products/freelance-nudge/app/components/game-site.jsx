@@ -10,6 +10,8 @@ const SKIN_KEY = "neon-grid-skin";
 const STREAK_KEY = "neon-grid-streak";
 const SETTING_REDUCED_MOTION = "neon-grid-reduced-motion";
 const SETTING_HIGH_CONTRAST = "neon-grid-high-contrast";
+const SETTING_SFX = "neon-grid-sfx";
+const SETTING_MUSIC = "neon-grid-music";
 
 const SKINS = [
   { id: "cyan", name: "Cyan Core", unlock: 0, player: "bg-cyan-400", glow: "shadow-[0_0_24px_rgba(34,211,238,.8)]" },
@@ -179,6 +181,8 @@ export default function GameSite() {
     setRunStreak(Number(localStorage.getItem(STREAK_KEY) || "0"));
     setReducedMotion(localStorage.getItem(SETTING_REDUCED_MOTION) === "1");
     setHighContrast(localStorage.getItem(SETTING_HIGH_CONTRAST) === "1");
+    setSoundOn(localStorage.getItem(SETTING_SFX) !== "0");
+    setMusicOn(localStorage.getItem(SETTING_MUSIC) === "1");
   }, []);
 
   useEffect(() => {
@@ -200,6 +204,14 @@ export default function GameSite() {
   useEffect(() => {
     localStorage.setItem(SETTING_HIGH_CONTRAST, highContrast ? "1" : "0");
   }, [highContrast]);
+
+  useEffect(() => {
+    localStorage.setItem(SETTING_SFX, soundOn ? "1" : "0");
+  }, [soundOn]);
+
+  useEffect(() => {
+    localStorage.setItem(SETTING_MUSIC, musicOn ? "1" : "0");
+  }, [musicOn]);
 
   useEffect(() => {
     if (!musicOn) {

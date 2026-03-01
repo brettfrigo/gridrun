@@ -38,6 +38,7 @@ export default function GameSite() {
   const [playerLane, setPlayerLane] = useState(1);
   const [obstacles, setObstacles] = useState([]);
   const [orbs, setOrbs] = useState([]);
+  const [powerups, setPowerups] = useState([]);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [score, setScore] = useState(0);
@@ -47,6 +48,7 @@ export default function GameSite() {
   const [shield, setShield] = useState(0);
   const [boost, setBoost] = useState(0);
   const [combo, setCombo] = useState(1);
+  const [magnet, setMagnet] = useState(0);
   const [orbCount, setOrbCount] = useState(0);
   const [bossesCleared, setBossesCleared] = useState(0);
   const [missionRewarded, setMissionRewarded] = useState(false);
@@ -70,6 +72,7 @@ export default function GameSite() {
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
+  const lastPowerupSpawn = useRef(0);
   const lastFrame = useRef(0);
   const runStart = useRef(0);
   const bossUntil = useRef(0);
@@ -130,11 +133,13 @@ export default function GameSite() {
     setPlayerLane(1);
     setObstacles([]);
     setOrbs([]);
+    setPowerups([]);
     setScore(0);
     setSpeed(1);
     setShield(1);
     setBoost(0);
     setCombo(1);
+    setMagnet(0);
     setPeakCombo(1);
     setOrbCount(0);
     setBossesCleared(0);
@@ -155,6 +160,7 @@ export default function GameSite() {
     bossUntil.current = 0;
     lastSpawn.current = now;
     lastOrbSpawn.current = now;
+    lastPowerupSpawn.current = now;
     lastFrame.current = now;
     rngRef.current = mulberry32(hashString(todayKey()));
     setPaused(false);
@@ -289,15 +295,23 @@ export default function GameSite() {
         setOrbs((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -8 }]);
       }
 
+      if (ts - lastPowerupSpawn.current >= 9000) {
+        lastPowerupSpawn.current = ts;
+        const lane = Math.floor(random() * LANES);
+        setPowerups((prev) => [...prev, { id: crypto.randomUUID(), lane, y: -8, type: "magnet" }]);
+      }
+
       const velocity = dt * (0.026 + speed * 0.007 + Math.min(boost, 3) * 0.01 + (inBoss ? 0.012 : 0));
       if (!reducedMotion) setRoadOffset((r) => (r + velocity * 2.2) % 60);
       setObstacles((prev) => prev.map((o) => ({ ...o, y: o.y + velocity })).filter((o) => o.y < 115));
       setOrbs((prev) => prev.map((o) => ({ ...o, y: o.y + velocity * 0.88 })).filter((o) => o.y < 115));
+      setPowerups((prev) => prev.map((p) => ({ ...p, y: p.y + velocity * 0.9 })).filter((p) => p.y < 115));
 
       const laneBonus = playerLane === 1 ? 1.2 : 1;
       setScore((s) => s + Math.floor((dt / 16) * (1 + boost * 0.4) * combo * laneBonus * (inBoss ? 1.35 : 1)));
       setSpeed((s) => Math.min(11, s + dt * 0.000048));
       setBoost((b) => Math.max(0, b - dt * 0.00032));
+      setMagnet((m) => Math.max(0, m - dt * 0.00025));
       setCombo((c) => Math.max(1, c - dt * 0.00011));
       setNextBossIn(Math.max(0, Math.ceil((BOSS_EVERY_MS - (elapsed % BOSS_EVERY_MS)) / 1000)));
 
@@ -311,9 +325,15 @@ export default function GameSite() {
   useEffect(() => {
     if (!running || paused) return;
 
-    const gotOrb = orbs.some((o) => o.lane === playerLane && o.y > 80 && o.y < 96);
+    const gotOrb = orbs.some((o) => {
+      const laneMatch = magnet > 0 ? Math.abs(o.lane - playerLane) <= 1 : o.lane === playerLane;
+      return laneMatch && o.y > 80 && o.y < 96;
+    });
     if (gotOrb) {
-      setOrbs((prev) => prev.filter((o) => !(o.lane === playerLane && o.y > 80 && o.y < 96)));
+      setOrbs((prev) => prev.filter((o) => {
+        const laneMatch = magnet > 0 ? Math.abs(o.lane - playerLane) <= 1 : o.lane === playerLane;
+        return !(laneMatch && o.y > 80 && o.y < 96);
+      }));
       setBoost((b) => Math.min(4.8, b + 1.2));
       setCombo((c) => {
         const next = Math.min(4.5, c + 0.35);
@@ -328,6 +348,16 @@ export default function GameSite() {
       setScore((s) => s + 150);
       setMessage("ENERGY ORB COLLECTED ⚡ COMBO UP");
       playBeep(860, 0.06, "triangle", 0.03);
+    }
+
+    const pickedPowerup = powerups.find((p) => p.lane === playerLane && p.y > 80 && p.y < 96);
+    if (pickedPowerup) {
+      setPowerups((prev) => prev.filter((p) => p.id !== pickedPowerup.id));
+      if (pickedPowerup.type === "magnet") {
+        setMagnet((m) => Math.min(5, m + 2.6));
+        setMessage("MAGNET ONLINE: orbs pull from adjacent lanes");
+        playBeep(740, 0.08, "triangle", 0.035);
+      }
     }
 
     const nearMiss = obstacles.some((o) => o.lane !== playerLane && o.y > 90 && o.y < 98);
@@ -372,12 +402,14 @@ export default function GameSite() {
         } else {
           setRunStreak(0);
         }
+        const medal = final >= 12000 ? "S" : final >= 8000 ? "A" : final >= 5000 ? "B" : final >= 2500 ? "C" : "D";
         setLastRun({
           score: final,
           orbs: orbCount,
           bosses: bossesCleared,
           peakCombo: Number(peakCombo.toFixed(1)),
-          cause: "Collision"
+          cause: "Collision",
+          medal
         });
         saveScore(final);
         setMessage(final >= 2000 ? "DEREZZED — streak increased. Run it back." : "DEREZZED. Streak reset. Press Start.");
@@ -385,7 +417,7 @@ export default function GameSite() {
         playBeep(120, 0.18, "square", 0.06);
       }
     }
-  }, [obstacles, orbs, playerLane, running, paused, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo, reducedMotion]);
+  }, [obstacles, orbs, powerups, playerLane, running, paused, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo, reducedMotion, magnet]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const laneLineClass = highContrast ? "bg-white/60" : "bg-cyan-400/30";
@@ -459,6 +491,16 @@ export default function GameSite() {
 
               {orbs.map((o) => <div key={o.id} className={`absolute -translate-x-1/2 h-6 w-6 rounded-full ${highContrast ? "bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,.9)]" : "bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]"}`} style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />)}
 
+              {powerups.map((p) => (
+                <div
+                  key={p.id}
+                  className="absolute -translate-x-1/2 h-7 w-7 rounded-full border border-amber-200 bg-amber-300 text-[10px] font-black text-slate-900 shadow-[0_0_20px_rgba(252,211,77,.8)] grid place-items-center"
+                  style={{ left: `${laneX[p.lane]}%`, top: `${p.y}%` }}
+                >
+                  M
+                </div>
+              ))}
+
               <div className={`absolute -translate-x-1/2 h-12 w-16 rounded-lg ${highContrast ? "bg-emerald-300 shadow-[0_0_24px_rgba(110,231,183,.95)]" : `${skin.player} ${skin.glow}`} transition-all`} style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
 
               {shield > 0 && <div className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]" style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }} />}
@@ -502,6 +544,8 @@ export default function GameSite() {
                 <div className="h-1.5 w-full rounded bg-cyan-900/40"><div className="h-1.5 rounded bg-cyan-300" style={{ width: `${boostPct}%` }} /></div>
                 <div className="mb-1 mt-2 flex items-center justify-between"><span>Combo meter</span><span>{combo.toFixed(1)}x</span></div>
                 <div className="h-1.5 w-full rounded bg-fuchsia-900/40"><div className="h-1.5 rounded bg-fuchsia-300" style={{ width: `${comboPct}%` }} /></div>
+                <div className="mb-1 mt-2 flex items-center justify-between"><span>Magnet</span><span>{magnet > 0 ? `${magnet.toFixed(1)}s` : "Offline"}</span></div>
+                <div className="h-1.5 w-full rounded bg-amber-900/40"><div className="h-1.5 rounded bg-amber-300" style={{ width: `${Math.min(100, (magnet / 5) * 100)}%` }} /></div>
               </div>
               <div className="mt-3 rounded-lg border border-cyan-500/25 p-2 text-xs">
                 <p className="mb-1 font-semibold text-cyan-200">Run Missions</p>
@@ -562,6 +606,7 @@ export default function GameSite() {
                   <div className="flex items-center justify-between"><span>Bosses cleared</span><strong>{lastRun.bosses}</strong></div>
                   <div className="flex items-center justify-between"><span>Peak combo</span><strong>{lastRun.peakCombo}x</strong></div>
                   <div className="flex items-center justify-between"><span>Cause</span><strong>{lastRun.cause}</strong></div>
+                  <div className="flex items-center justify-between"><span>Medal</span><strong>{lastRun.medal}</strong></div>
                 </div>
               ) : <p className="mt-2 text-sm text-cyan-100/60">No completed run yet.</p>}
             </div>

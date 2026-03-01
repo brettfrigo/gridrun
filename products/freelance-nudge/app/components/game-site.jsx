@@ -9,6 +9,7 @@ const LEADERBOARD_KEY = "neon-grid-leaderboard";
 const SKIN_KEY = "neon-grid-skin";
 const STREAK_KEY = "neon-grid-streak";
 const SETTING_REDUCED_MOTION = "neon-grid-reduced-motion";
+const SETTING_HIGH_CONTRAST = "neon-grid-high-contrast";
 
 const SKINS = [
   { id: "cyan", name: "Cyan Core", unlock: 0, player: "bg-cyan-400", glow: "shadow-[0_0_24px_rgba(34,211,238,.8)]" },
@@ -63,6 +64,7 @@ export default function GameSite() {
   const [roadOffset, setRoadOffset] = useState(0);
   const [comboBurst, setComboBurst] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
   const [gameOver, setGameOver] = useState(false);
 
   const lastSpawn = useRef(0);
@@ -162,6 +164,7 @@ export default function GameSite() {
     setSelectedSkin(skinSaved);
     setRunStreak(Number(localStorage.getItem(STREAK_KEY) || "0"));
     setReducedMotion(localStorage.getItem(SETTING_REDUCED_MOTION) === "1");
+    setHighContrast(localStorage.getItem(SETTING_HIGH_CONTRAST) === "1");
   }, []);
 
   useEffect(() => {
@@ -179,6 +182,10 @@ export default function GameSite() {
   useEffect(() => {
     localStorage.setItem(SETTING_REDUCED_MOTION, reducedMotion ? "1" : "0");
   }, [reducedMotion]);
+
+  useEffect(() => {
+    localStorage.setItem(SETTING_HIGH_CONTRAST, highContrast ? "1" : "0");
+  }, [highContrast]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -345,6 +352,7 @@ export default function GameSite() {
   }, [obstacles, orbs, playerLane, running, paused, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo, reducedMotion]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
+  const laneLineClass = highContrast ? "bg-white/60" : "bg-cyan-400/30";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
   const laneBonusActive = playerLane === 1;
   const boostPct = Math.min(100, Math.round((boost / 4.8) * 100));
@@ -369,6 +377,7 @@ export default function GameSite() {
             <div className="flex flex-col gap-2">
               <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{soundOn ? "🔊 Sound On" : "🔈 Sound Off"}</button>
               <button onClick={() => setReducedMotion((v) => !v)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{reducedMotion ? "🧊 Reduced Motion" : "✨ Full Motion"}</button>
+              <button onClick={() => setHighContrast((v) => !v)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{highContrast ? "🌓 High Contrast" : "🌈 Standard Contrast"}</button>
             </div>
           </div>
 
@@ -383,17 +392,21 @@ export default function GameSite() {
           <div className={`rounded-2xl border border-cyan-400/40 bg-gradient-to-b ${vibe} p-4 shadow-[0_0_40px_rgba(14,165,233,.18)]`}>
             <div className={`relative h-[540px] overflow-hidden rounded-xl border border-cyan-500/30 bg-[#02030a] ${dangerFlash ? "animate-pulse" : ""}`}>
               <div
-                className="absolute inset-0 opacity-35"
+                className={`absolute inset-0 ${highContrast ? "opacity-55" : "opacity-35"}`}
                 style={{
-                  backgroundImage: "linear-gradient(to bottom, rgba(34,211,238,0.2) 1px, transparent 1px)",
+                  backgroundImage: highContrast
+                    ? "linear-gradient(to bottom, rgba(255,255,255,0.42) 1px, transparent 1px)"
+                    : "linear-gradient(to bottom, rgba(34,211,238,0.2) 1px, transparent 1px)",
                   backgroundSize: "100% 30px",
                   backgroundPositionY: `${roadOffset}px`
                 }}
               />
               <div
-                className="absolute inset-0 opacity-20"
+                className={`absolute inset-0 ${highContrast ? "opacity-35" : "opacity-20"}`}
                 style={{
-                  backgroundImage: "linear-gradient(to right, rgba(217,70,239,0.2) 1px, transparent 1px)",
+                  backgroundImage: highContrast
+                    ? "linear-gradient(to right, rgba(255,255,255,0.28) 1px, transparent 1px)"
+                    : "linear-gradient(to right, rgba(217,70,239,0.2) 1px, transparent 1px)",
                   backgroundSize: "44px 100%",
                   backgroundPositionY: `${roadOffset * 0.5}px`
                 }}
@@ -401,15 +414,15 @@ export default function GameSite() {
 
               {bossMode && <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-rose-400/60 bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-200">BOSS WAVE</div>}
 
-              {[0, 1, 2].map((lane) => <div key={lane} className="absolute top-0 bottom-0 w-px bg-cyan-400/30" style={{ left: `${laneX[lane]}%` }} />)}
+              {[0, 1, 2].map((lane) => <div key={lane} className={`absolute top-0 bottom-0 w-px ${laneLineClass}`} style={{ left: `${laneX[lane]}%` }} />)}
 
               {obstacles.map((o) => (
-                <div key={o.id} className={`absolute -translate-x-1/2 rounded-md ${o.type === "wall" ? "h-12 w-20 bg-fuchsia-500 shadow-fuchsia-500/50" : "h-10 w-16 bg-rose-500 shadow-rose-500/50"} shadow-lg`} style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />
+                <div key={o.id} className={`absolute -translate-x-1/2 rounded-md ${o.type === "wall" ? (highContrast ? "h-12 w-20 bg-white shadow-white/40" : "h-12 w-20 bg-fuchsia-500 shadow-fuchsia-500/50") : (highContrast ? "h-10 w-16 bg-yellow-200 shadow-yellow-200/40" : "h-10 w-16 bg-rose-500 shadow-rose-500/50")} shadow-lg`} style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />
               ))}
 
-              {orbs.map((o) => <div key={o.id} className="absolute -translate-x-1/2 h-6 w-6 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]" style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />)}
+              {orbs.map((o) => <div key={o.id} className={`absolute -translate-x-1/2 h-6 w-6 rounded-full ${highContrast ? "bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,.9)]" : "bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.8)]"}`} style={{ left: `${laneX[o.lane]}%`, top: `${o.y}%` }} />)}
 
-              <div className={`absolute -translate-x-1/2 h-12 w-16 rounded-lg ${skin.player} ${skin.glow} transition-all`} style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
+              <div className={`absolute -translate-x-1/2 h-12 w-16 rounded-lg ${highContrast ? "bg-emerald-300 shadow-[0_0_24px_rgba(110,231,183,.95)]" : `${skin.player} ${skin.glow}`} transition-all`} style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
 
               {shield > 0 && <div className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]" style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }} />}
 

@@ -63,6 +63,7 @@ export default function GameSite() {
   const [roadOffset, setRoadOffset] = useState(0);
   const [comboBurst, setComboBurst] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
@@ -131,6 +132,7 @@ export default function GameSite() {
     setDangerFlash(false);
     setComboBurst(false);
     setRoadOffset(0);
+    setGameOver(false);
     setBossMode(false);
     setNextBossIn(30);
     setMessage(mode === "daily" ? "DAILY CHALLENGE ACTIVE" : "RUNNER ONLINE");
@@ -314,6 +316,7 @@ export default function GameSite() {
         playBeep(180, 0.1, "sawtooth", 0.05);
       } else {
         setRunning(false);
+        setGameOver(true);
         const final = score;
         setBest((b) => Math.max(b, final));
         if (mode === "daily") {
@@ -409,6 +412,17 @@ export default function GameSite() {
               <div className={`absolute -translate-x-1/2 h-12 w-16 rounded-lg ${skin.player} ${skin.glow} transition-all`} style={{ left: `${laneX[playerLane]}%`, bottom: "20px" }} />
 
               {shield > 0 && <div className="absolute -translate-x-1/2 h-16 w-20 rounded-xl border border-cyan-200/70 shadow-[0_0_28px_rgba(34,211,238,.5)]" style={{ left: `${laneX[playerLane]}%`, bottom: "14px" }} />}
+
+              {gameOver && (
+                <div className="absolute inset-0 z-20 grid place-items-center bg-black/55 p-4">
+                  <div className="w-full max-w-xs rounded-xl border border-rose-400/50 bg-slate-950/95 p-4 text-center shadow-[0_0_24px_rgba(244,63,94,.25)]">
+                    <p className="text-xs uppercase tracking-[0.18em] text-rose-300">Run Ended</p>
+                    <h3 className="mt-1 text-xl font-bold text-rose-200">You got derezzed</h3>
+                    <p className="mt-2 text-sm text-cyan-100/80">Score: <strong>{score}</strong></p>
+                    <button onClick={start} className="mt-3 w-full rounded-lg bg-gradient-to-r from-cyan-400 to-fuchsia-500 px-3 py-2 font-bold text-slate-950 hover:brightness-110">Run it back</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-3 flex items-center justify-center gap-3 md:hidden">

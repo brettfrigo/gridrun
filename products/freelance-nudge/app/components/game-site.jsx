@@ -8,6 +8,7 @@ const BOSS_EVERY_MS = 30000;
 const LEADERBOARD_KEY = "neon-grid-leaderboard";
 const SKIN_KEY = "neon-grid-skin";
 const STREAK_KEY = "neon-grid-streak";
+const SETTING_REDUCED_MOTION = "neon-grid-reduced-motion";
 
 const SKINS = [
   { id: "cyan", name: "Cyan Core", unlock: 0, player: "bg-cyan-400", glow: "shadow-[0_0_24px_rgba(34,211,238,.8)]" },
@@ -61,6 +62,7 @@ export default function GameSite() {
   const [lastRun, setLastRun] = useState(null);
   const [roadOffset, setRoadOffset] = useState(0);
   const [comboBurst, setComboBurst] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   const lastSpawn = useRef(0);
   const lastOrbSpawn = useRef(0);
@@ -157,6 +159,7 @@ export default function GameSite() {
     const skinSaved = localStorage.getItem(SKIN_KEY) || "cyan";
     setSelectedSkin(skinSaved);
     setRunStreak(Number(localStorage.getItem(STREAK_KEY) || "0"));
+    setReducedMotion(localStorage.getItem(SETTING_REDUCED_MOTION) === "1");
   }, []);
 
   useEffect(() => {
@@ -170,6 +173,10 @@ export default function GameSite() {
   useEffect(() => {
     localStorage.setItem(STREAK_KEY, String(runStreak));
   }, [runStreak]);
+
+  useEffect(() => {
+    localStorage.setItem(SETTING_REDUCED_MOTION, reducedMotion ? "1" : "0");
+  }, [reducedMotion]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -238,7 +245,7 @@ export default function GameSite() {
       }
 
       const velocity = dt * (0.026 + speed * 0.007 + Math.min(boost, 3) * 0.01 + (inBoss ? 0.012 : 0));
-      setRoadOffset((r) => (r + velocity * 2.2) % 60);
+      if (!reducedMotion) setRoadOffset((r) => (r + velocity * 2.2) % 60);
       setObstacles((prev) => prev.map((o) => ({ ...o, y: o.y + velocity })).filter((o) => o.y < 115));
       setOrbs((prev) => prev.map((o) => ({ ...o, y: o.y + velocity * 0.88 })).filter((o) => o.y < 115));
 
@@ -254,7 +261,7 @@ export default function GameSite() {
 
     raf.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf.current);
-  }, [running, paused, speed, boost, combo, mode, playerLane]);
+  }, [running, paused, speed, boost, combo, mode, playerLane, reducedMotion]);
 
   useEffect(() => {
     if (!running || paused) return;
@@ -269,8 +276,10 @@ export default function GameSite() {
         return next;
       });
       setOrbCount((c) => c + 1);
-      setComboBurst(true);
-      setTimeout(() => setComboBurst(false), 180);
+      if (!reducedMotion) {
+        setComboBurst(true);
+        setTimeout(() => setComboBurst(false), 180);
+      }
       setScore((s) => s + 150);
       setMessage("ENERGY ORB COLLECTED ⚡ COMBO UP");
       playBeep(860, 0.06, "triangle", 0.03);
@@ -330,7 +339,7 @@ export default function GameSite() {
         playBeep(120, 0.18, "square", 0.06);
       }
     }
-  }, [obstacles, orbs, playerLane, running, paused, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo]);
+  }, [obstacles, orbs, playerLane, running, paused, shield, score, mode, dailyBest, orbCount, bossesCleared, missionRewarded, peakCombo, reducedMotion]);
 
   const vibe = boost > 0 ? "from-cyan-900/35 via-fuchsia-900/20 to-indigo-950" : "from-slate-950 via-slate-950 to-indigo-950";
   const tier = speed > 8.5 ? "INSANE" : speed > 6 ? "HARD" : speed > 3.5 ? "NORMAL" : "EASY";
@@ -354,7 +363,10 @@ export default function GameSite() {
               <h1 className="mt-2 text-4xl font-black tracking-tight text-cyan-200">NEON GRID RUNNER</h1>
               <p className="mt-2 text-cyan-100/80">Race the light lanes. Dodge corrupt blocks. Harvest energy orbs. Don’t get derezzed.</p>
             </div>
-            <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{soundOn ? "🔊 Sound On" : "🔈 Sound Off"}</button>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{soundOn ? "🔊 Sound On" : "🔈 Sound Off"}</button>
+              <button onClick={() => setReducedMotion((v) => !v)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{reducedMotion ? "🧊 Reduced Motion" : "✨ Full Motion"}</button>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -413,7 +425,7 @@ export default function GameSite() {
                 <Stat label="Best" value={best} tone="fuchsia" />
                 <Stat label="Speed" value={`${speed.toFixed(1)}x`} tone="cyan" />
                 <Stat label="Boost" value={`${boost.toFixed(1)}x`} tone="fuchsia" />
-                <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" pop={comboBurst} />
+                <Stat label="Combo" value={`${combo.toFixed(1)}x`} tone="cyan" pop={!reducedMotion && comboBurst} />
                 <Stat label="Tier" value={tier} tone="fuchsia" />
                 <Stat label="Streak" value={`${runStreak}`} tone="cyan" />
                 <Stat label="State" value={paused ? "PAUSED" : running ? "RUNNING" : "IDLE"} tone="fuchsia" />

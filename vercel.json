@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd products/freelance-nudge && npm run build",
+  "installCommand": "cd products/freelance-nudge && npm install",
+  "outputDirectory": "products/freelance-nudge/.next"
+}

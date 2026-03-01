@@ -54,6 +54,7 @@ export default function GameSite() {
   const [message, setMessage] = useState("ENTER THE GRID — press Start or Space");
   const [dangerFlash, setDangerFlash] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [musicOn, setMusicOn] = useState(false);
   const [bossMode, setBossMode] = useState(false);
   const [nextBossIn, setNextBossIn] = useState(30);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -75,12 +76,14 @@ export default function GameSite() {
   const rngRef = useRef(Math.random);
   const raf = useRef(null);
   const audioCtxRef = useRef(null);
+  const musicTimerRef = useRef(null);
+  const musicStepRef = useRef(0);
 
   const laneX = useMemo(() => [16.66, 50, 83.33], []);
   const skin = SKINS.find((s) => s.id === selectedSkin) || SKINS[0];
 
-  const playBeep = (freq = 440, duration = 0.08, type = "sine", gain = 0.035) => {
-    if (!soundOn || typeof window === "undefined") return;
+  const playTone = (freq = 440, duration = 0.08, type = "sine", gain = 0.035) => {
+    if (typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
     if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
@@ -94,6 +97,11 @@ export default function GameSite() {
     g.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + duration);
+  };
+
+  const playBeep = (freq = 440, duration = 0.08, type = "sine", gain = 0.035) => {
+    if (!soundOn) return;
+    playTone(freq, duration, type, gain);
   };
 
   const random = () => (mode === "daily" ? rngRef.current() : Math.random());
@@ -186,6 +194,34 @@ export default function GameSite() {
   useEffect(() => {
     localStorage.setItem(SETTING_HIGH_CONTRAST, highContrast ? "1" : "0");
   }, [highContrast]);
+
+  useEffect(() => {
+    if (!musicOn) {
+      if (musicTimerRef.current) {
+        clearInterval(musicTimerRef.current);
+        musicTimerRef.current = null;
+      }
+      return;
+    }
+
+    const bass = [110, 110, 98, 98, 123, 123, 98, 98];
+    const lead = [220, 247, 262, 294, 262, 247, 220, 196];
+
+    musicStepRef.current = 0;
+    musicTimerRef.current = setInterval(() => {
+      const i = musicStepRef.current % bass.length;
+      playTone(bass[i], 0.18, "sawtooth", 0.012);
+      if (i % 2 === 0) playTone(lead[i], 0.12, "triangle", 0.009);
+      musicStepRef.current += 1;
+    }, 220);
+
+    return () => {
+      if (musicTimerRef.current) {
+        clearInterval(musicTimerRef.current);
+        musicTimerRef.current = null;
+      }
+    };
+  }, [musicOn]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -375,7 +411,8 @@ export default function GameSite() {
               <p className="mt-2 text-cyan-100/80">Race the light lanes. Dodge corrupt blocks. Harvest energy orbs. Don’t get derezzed.</p>
             </div>
             <div className="flex flex-col gap-2">
-              <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{soundOn ? "🔊 Sound On" : "🔈 Sound Off"}</button>
+              <button onClick={() => setSoundOn((s) => !s)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{soundOn ? "🔊 SFX On" : "🔈 SFX Off"}</button>
+              <button onClick={() => setMusicOn((m) => !m)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{musicOn ? "🎵 Music On" : "🎶 Music Off"}</button>
               <button onClick={() => setReducedMotion((v) => !v)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{reducedMotion ? "🧊 Reduced Motion" : "✨ Full Motion"}</button>
               <button onClick={() => setHighContrast((v) => !v)} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs">{highContrast ? "🌓 High Contrast" : "🌈 Standard Contrast"}</button>
             </div>

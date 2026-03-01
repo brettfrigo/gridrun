@@ -111,6 +111,18 @@ export default function GameSite() {
 
   const random = () => (mode === "daily" ? rngRef.current() : Math.random());
 
+  const shareLastRun = async () => {
+    if (!lastRun) return;
+    const text = `I scored ${lastRun.score} in Neon Grid Runner (${lastRun.medal} medal) — orbs ${lastRun.orbs}, bosses ${lastRun.bosses}, peak combo ${lastRun.peakCombo}x. Can you beat me?`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setMessage("Run summary copied. Paste it anywhere.");
+      playBeep(720, 0.06, "triangle", 0.03);
+    } catch {
+      setMessage("Could not copy run summary.");
+    }
+  };
+
   const saveScore = (finalScore) => {
     if (finalScore <= 0) return;
 
@@ -619,6 +631,7 @@ export default function GameSite() {
                   <div className="flex items-center justify-between"><span>Peak combo</span><strong>{lastRun.peakCombo}x</strong></div>
                   <div className="flex items-center justify-between"><span>Cause</span><strong>{lastRun.cause}</strong></div>
                   <div className="flex items-center justify-between"><span>Medal</span><strong>{lastRun.medal}</strong></div>
+                  <button onClick={shareLastRun} className="mt-2 w-full rounded-lg border border-cyan-400/40 px-2 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/10">Copy run flex text</button>
                 </div>
               ) : <p className="mt-2 text-sm text-cyan-100/60">No completed run yet.</p>}
             </div>
